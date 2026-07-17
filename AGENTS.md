@@ -27,15 +27,38 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 
 ## AI and Cloudflare Pages deployment
 
-- “喵喵” is the only currently available AI agent. Route only her conversation to the Edge `/chat` endpoint; every other agent must keep its UI entry but show `该智能体暂未开放，敬请期待。` when a user sends a message.
-- Never call SenseNova from Flutter and never pass its API token through `--dart-define`. The Android app receives only the public `LUMO_AI_ENDPOINT` GitHub Actions Variable, which must be the full HTTPS Worker `/chat` URL.
+- “喵喵” is the only currently available AI agent. Route only her conversation to the Cloudflare Pages `/chat` endpoint; every other agent must keep its UI entry but show `该智能体暂未开放，敬请期待。` when a user sends a message.
+- Never call SenseNova from Flutter and never pass its API token through `--dart-define`. The Android app receives only the public `LUMO_AI_ENDPOINT` GitHub Actions Variable, which must be the full HTTPS Pages `/chat` URL.
 - Keep the Meow system prompt, SenseNova token, model ID, request limits, and provider error handling in `pages/_worker.js`. Do not accept a client-supplied system prompt or agent ID other than `meow`.
 - Maintain Meow’s persona: soft, attentive, lightly tsundere cat-girl tone in natural Chinese; practical and non-manipulative; no medical diagnosis, no fabricated real-world presence, and immediate gentle escalation toward local emergency/professional support for self-harm or imminent-danger signals.
 - Deploy `pages/` directly from this logged-in machine with `wrangler pages deploy` on the Cloudflare free plan; do not use a GitHub Actions deployment workflow. Store `SENSENOVA_API_TOKEN` only with `wrangler pages secret put SENSENOVA_API_TOKEN`.
 - Use `deepseek-v4-flash` as the primary model. Retry exactly once with `sensenova-6.7-flash-lite` only when the provider reports rate/limit exhaustion (HTTP 429 or provider code 8); do not query or guess model IDs.
 - Use the OpenAI-compatible SenseNova endpoint `https://token.sensenova.cn/v1/chat/completions`, with string message content and `choices[0].message.content` responses. Do not use the legacy `api.sensenova.cn/v1/llm` protocol for this `sk-` API key.
 - After Wrangler deploy, set `LUMO_AI_ENDPOINT` to the deployed HTTPS Pages `/chat` URL using a GitHub Actions Variable, then run `Run`. The app must surface a clear retryable error instead of fabricating an AI reply when the endpoint or provider is unavailable.
-- Treat an API token sent in chat, source, build logs, or a public release as compromised: rotate it in the provider console and update only the corresponding GitHub Secret. Never add it to a local tracked file.
+- Treat an API token sent in chat, source, build logs, or a public release as compromised: rotate it in the provider console and update only the corresponding Cloudflare Pages Secret. Never add it to a local tracked file.
+
+### Conversation data and memory
+
+- Store Meow conversations, messages, summaries, and memory candidates only in the local SQLite database. Multiple named conversations are supported; other agents remain unavailable.
+- The app-side dynamic context limit is 128k conservative UTF-8-byte tokens and excludes only Meow's fixed persona. It includes approved memories, rolling summary, and raw messages.
+- When dynamic context exceeds the limit, summarize the earliest source messages successfully before permanently deleting their local rows. Do not silently discard raw messages or delete an unsummarized batch.
+- The model decides whether to propose memories after a completed exchange. A candidate is never used until the user explicitly approves it; approved memories are shared across Meow conversations.
+- Keep memory candidates concise (240 characters or fewer), expose accept/edit/delete controls, and provide separately confirmed deletion for the current conversation, all conversations, and all memories.
+
+## Announcement publishing
+
+- Homepage announcements are the `NoticeItem` entries in `lib/data.dart`; their shared data drives both the card and the detail bottom sheet. Do not duplicate announcement copy in page widgets.
+- Publish an announcement only for a released, user-visible change. State the impact, availability or maintenance window, and the user action or limitation accurately; do not announce an unverified build or unavailable feature.
+- Use one of the established tags (`更新`, `活动`, `通知`, `新功能`), a concise title and summary, then put the full explanation in `detail`. Keep relative time truthful and revise it with the release when necessary.
+- Verify the homepage card, accessibility label, detail sheet, and primary dismissal action after changing announcement data. Use `Run` before announcing a public APK release.
+
+## UI, interaction, and implementation standards
+
+- Preserve the Lumo design system: use theme tokens and existing component patterns, keep 4/8dp spacing rhythm, cards at the established radii, and use Material vector icons rather than emoji as controls.
+- Every interactive control needs an accessible label, clear pressed/disabled state, and at least a 44×44 logical-pixel target. Keep fixed input bars and bottom sheets within safe areas.
+- Motion must communicate navigation, loading, or state change; keep it within 150–300ms and honor `MediaQuery.disableAnimations`. Do not add decorative looping motion.
+- Persist user-visible writes before claiming success. Surface network, storage, and AI failures clearly; never substitute fabricated AI output, silently discard data, or hide an error behind a default value.
+- Reuse the smallest proven dependency or platform API. New persistence, API, and context logic must include a focused automated test; public-facing behavior changes require the remote `Run` verification.
 
 ## Continuous improvement
 

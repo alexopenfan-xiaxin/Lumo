@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../ai_chat_client.dart';
+import '../chat_store.dart';
+import '../context_window.dart';
 import '../data.dart';
 import '../widgets.dart';
 
@@ -20,16 +24,53 @@ class _ChatPageState extends State<ChatPage> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _aiChatClient = AiChatClient();
-  late final List<_ChatMessage> _messages = [
-    _ChatMessage(text: widget.companion.openingMessage, fromUser: false),
-  ];
+  final _store = ChatStore();
+  late List<_ChatMessage> _messages = [_ChatMessage(id: 'opening', text: widget.companion.openingMessage, fromUser: false)];
+  Conversation? _conversation;
+  List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
+  bool _isLoadingConversation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.companion.isAvailable) unawaited(_loadConversation());
+  }
 
   @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadConversation({Conversation? conversation, bool createNew = false}) async {
+    if (!widget.companion.isAvailable) return;
+    setState(() => _isLoadingConversation = true);
+    try {
+      final selected = conversation ??
+          (createNew ? await _store.createConversation(widget.companion.id) : await _store.latestConversation(widget.companion.id)) ??
+          await _store.createConversation(widget.companion.id);
+      var storedMessages = await _store.messages(selected.id);
+      if (storedMessages.isEmpty) {
+        await _store.addMessage(
+          conversationId: selected.id,
+          role: MessageRole.assistant,
+          content: widget.companion.openingMessage,
+        );
+        storedMessages = await _store.messages(selected.id);
+      }
+      final pending = await _store.memories(widget.companion.id, status: MemoryStatus.pending.name);
+      if (!mounted) return;
+      setState(() {
+        _conversation = selected;
+        _messages = storedMessages.map(_ChatMessage.fromStored).toList();
+        _pendingMemories = pending;
+      });
+      _scrollToEnd();
+    } finally {
+      if (mounted) setState(() => _isLoadingConversation = false);
+    }
   }
 
   void _scrollToEnd() {
@@ -49,38 +90,401 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _send([String? suggestedText]) async {
     final text = (suggestedText ?? _inputController.text).trim();
-    if (text.isEmpty || _isReplying) return;
+    if (text.isEmpty || _isReplying || _isLoadingConversation) return;
     if (!widget.companion.isAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('该智能体暂未开放，敬请期待。')));
       return;
     }
+    if (_conversation == null) await _loadConversation();
+    final conversation = _conversation;
+    if (conversation == null) return;
+
     HapticFeedback.lightImpact();
+    final userMessage = await _store.addMessage(
+      conversationId: conversation.id,
+      role: MessageRole.user,
+      content: text,
+    );
+    if (!mounted) return;
     setState(() {
-      _messages.add(_ChatMessage(text: text, fromUser: true));
+      _messages.add(_ChatMessage.fromStored(userMessage));
       _inputController.clear();
       _isReplying = true;
     });
     _scrollToEnd();
+
     try {
-      final reply = await _aiChatClient.reply(
-        _messages
-            .map((message) => AiChatMessage(role: message.fromUser ? 'user' : 'assistant', content: message.text))
-            .toList(),
-      );
-      if (mounted) {
-        setState(() => _messages.add(_ChatMessage(text: reply, fromUser: false)));
+      var context = await _prepareContext(conversation.id);
+      String reply;
+      try {
+        reply = await _aiChatClient.reply(
+          context.messages.map(_asAiMessage).toList(),
+          summary: context.summary,
+          memories: context.memories.map((memory) => memory.content).toList(),
+        );
+      } on AiContextLimitException {
+        context = await _prepareContext(conversation.id, forceTrim: true);
+        reply = await _aiChatClient.reply(
+          context.messages.map(_asAiMessage).toList(),
+          summary: context.summary,
+          memories: context.memories.map((memory) => memory.content).toList(),
+        );
       }
+      final assistantMessage = await _store.addMessage(
+        conversationId: conversation.id,
+        role: MessageRole.assistant,
+        content: reply,
+      );
+      if (mounted) setState(() => _messages.add(_ChatMessage.fromStored(assistantMessage)));
+      unawaited(_proposeMemories(conversation.id));
     } on AiChatException catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('本地会话保存失败，请稍后再试。')));
+      }
     } finally {
       if (mounted) {
-        setState(() {
-          _isReplying = false;
-        });
+        setState(() => _isReplying = false);
         _scrollToEnd();
       }
     }
   }
+
+  Future<_PreparedContext> _prepareContext(String conversationId, {bool forceTrim = false}) async {
+    var conversation = await _store.conversation(conversationId);
+    if (conversation == null) throw const AiChatException('当前会话已不存在。');
+    var shouldForceTrim = forceTrim;
+    while (true) {
+      final messages = await _store.messages(conversation.id);
+      final memories = (await _store.memories(widget.companion.id, status: MemoryStatus.approved.name)).take(100).toList();
+      final window = limitContext(messages: messages, summary: conversation.summary, memories: memories);
+      final forcedIds = shouldForceTrim && window.removedMessageIds.isEmpty && messages.length > 1 ? [messages.first.id] : const <String>[];
+      final messageIds = window.removedMessageIds.isEmpty ? forcedIds : window.removedMessageIds;
+      if (messageIds.isEmpty) {
+        return _PreparedContext(messages: window.messages, summary: conversation.summary, memories: memories);
+      }
+      final ids = messageIds.toSet();
+      final batch = _summaryBatch(messages.where((message) => ids.contains(message.id)).toList());
+      if (batch.isEmpty) throw const AiChatException('上下文内容过大，无法继续整理。');
+      final summary = await _aiChatClient.summarize(conversation.summary, batch.map(_asAiMessage).toList());
+      await _store.replaceSummaryAndDeleteMessages(
+        conversationId: conversation.id,
+        summary: summary,
+        messageIds: batch.map((message) => message.id).toList(),
+      );
+      shouldForceTrim = false;
+      conversation = conversation.copyWith(summary: summary);
+      if (mounted && _conversation?.id == conversation.id) {
+        setState(() => _messages.removeWhere((message) => batch.any((stored) => stored.id == message.id)));
+      }
+    }
+  }
+
+  List<StoredMessage> _summaryBatch(List<StoredMessage> messages) {
+    final batch = <StoredMessage>[];
+    var tokens = 0;
+    for (final message in messages) {
+      final messageTokens = estimatedTokens(message.content);
+      if (batch.isNotEmpty && tokens + messageTokens > 24000) break;
+      batch.add(message);
+      tokens += messageTokens;
+    }
+    return batch;
+  }
+
+  Future<void> _proposeMemories(String conversationId) async {
+    try {
+      final messages = await _store.messages(conversationId);
+      if (messages.length < 2) return;
+      final approved = await _store.memories(widget.companion.id, status: MemoryStatus.approved.name);
+      final candidates = await _aiChatClient.memoryCandidates(
+        messages.skip(messages.length - 2).map(_asAiMessage).toList(),
+        approved.take(100).map((memory) => memory.content).toList(),
+      );
+      if (candidates.isEmpty) return;
+      await _store.addMemoryCandidates(widget.companion.id, candidates);
+      final pending = await _store.memories(widget.companion.id, status: MemoryStatus.pending.name);
+      if (mounted) setState(() => _pendingMemories = pending);
+    } on Exception {
+      // Memory suggestions are optional; a chat reply must not be affected by their failure.
+    }
+  }
+
+  AiChatMessage _asAiMessage(StoredMessage message) =>
+      AiChatMessage(role: message.role == MessageRole.user ? 'user' : 'assistant', content: message.content);
+
+  Future<void> _showSessions() async {
+    Future<List<Conversation>> sessions = _store.conversations(widget.companion.id);
+    final selected = await showModalBottomSheet<Conversation>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: FutureBuilder<List<Conversation>>(
+            future: sessions,
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? const <Conversation>[];
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text('会话', style: Theme.of(context).textTheme.titleLarge)),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final conversation = await _store.createConversation(widget.companion.id);
+                            if (sheetContext.mounted) Navigator.pop(sheetContext, conversation);
+                          },
+                          icon: const Icon(Icons.add_comment_outlined),
+                          label: const Text('新建'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (snapshot.connectionState != ConnectionState.done)
+                      const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final conversation = items[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(conversation.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              subtitle: Text(_timeLabel(conversation.updatedAt)),
+                              onTap: () => Navigator.pop(sheetContext, conversation),
+                              trailing: IconButton(
+                                tooltip: '删除会话',
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                onPressed: () async {
+                                  await _store.deleteConversation(conversation.id);
+                                  setSheetState(() => sessions = _store.conversations(widget.companion.id));
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (selected != null) await _loadConversation(conversation: selected);
+  }
+
+  Future<void> _showInfo() async {
+    if (!widget.companion.isAvailable) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(widget.companion.name),
+          content: Text('${widget.companion.tagline}\n\n该智能体暂未开放。'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭'))],
+        ),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.psychology_outlined),
+                title: const Text('喵喵的记忆'),
+                subtitle: Text('${_pendingMemories.length} 条等待确认'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showMemories();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: const Text('清空当前会话'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  if (await _confirm('清空当前会话？', '早期摘要和当前会话消息都会永久删除。')) {
+                    final conversation = _conversation;
+                    if (conversation != null) await _store.deleteConversation(conversation.id);
+                    await _loadConversation(createNew: true);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.delete_sweep_outlined),
+                title: const Text('清空全部会话'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  if (await _confirm('清空全部会话？', '所有喵喵会话与摘要都会永久删除。')) {
+                    await _store.clearConversations(widget.companion.id);
+                    await _loadConversation(createNew: true);
+                  }
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.delete_forever_outlined),
+                title: const Text('清空全部记忆'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  if (await _confirm('清空全部记忆？', '已确认和待确认的长期记忆都会永久删除。')) {
+                    await _store.clearMemories(widget.companion.id);
+                    if (mounted) setState(() => _pendingMemories = const []);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showMemories() async {
+    Future<List<MemoryEntry>> memoryFuture = _store.memories(widget.companion.id);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.78,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: FutureBuilder<List<MemoryEntry>>(
+                future: memoryFuture,
+                builder: (context, snapshot) {
+                  final memories = snapshot.data ?? const <MemoryEntry>[];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('喵喵的记忆', style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text('只有确认后的内容会在后续对话中使用。', style: Theme.of(context).textTheme.bodySmall),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: memories.length,
+                          separatorBuilder: (_, index) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final memory = memories[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(memory.content),
+                              subtitle: Text(_memoryLabel(memory.status)),
+                              trailing: Wrap(
+                                spacing: 2,
+                                children: [
+                                  if (memory.status == MemoryStatus.pending)
+                                    IconButton(
+                                      tooltip: '确认记忆',
+                                      onPressed: () async {
+                                        await _store.updateMemory(memory.copyWith(status: MemoryStatus.approved));
+                                        setSheetState(() => memoryFuture = _store.memories(widget.companion.id));
+                                        _refreshPendingMemories();
+                                      },
+                                      icon: const Icon(Icons.check_rounded),
+                                    ),
+                                  IconButton(
+                                    tooltip: '编辑记忆',
+                                    onPressed: () async {
+                                      final edited = await _editMemory(memory.content);
+                                      if (edited == null) return;
+                                      await _store.updateMemory(memory.copyWith(content: edited));
+                                      setSheetState(() => memoryFuture = _store.memories(widget.companion.id));
+                                    },
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                                  IconButton(
+                                    tooltip: '删除记忆',
+                                    onPressed: () async {
+                                      await _store.deleteMemory(memory.id);
+                                      setSheetState(() => memoryFuture = _store.memories(widget.companion.id));
+                                      _refreshPendingMemories();
+                                    },
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshPendingMemories() async {
+    final pending = await _store.memories(widget.companion.id, status: MemoryStatus.pending.name);
+    if (mounted) setState(() => _pendingMemories = pending);
+  }
+
+  Future<bool> _confirm(String title, String content) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('清空')),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<String?> _editMemory(String initial) async {
+    final controller = TextEditingController(text: initial);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑记忆'),
+        content: TextField(controller: controller, maxLength: 240, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('保存')),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result?.isEmpty ?? true ? null : result;
+  }
+
+  String _timeLabel(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _memoryLabel(MemoryStatus status) => switch (status) {
+        MemoryStatus.pending => '等待你的确认',
+        MemoryStatus.approved => '已用于后续对话',
+        MemoryStatus.rejected => '已拒绝',
+      };
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -113,18 +517,9 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
       actions: [
-        IconButton(
-          tooltip: '对话信息',
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(widget.companion.name),
-              content: Text('${widget.companion.tagline}\n\n演示对话仅保存在当前会话中。'),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭'))],
-            ),
-          ),
-          icon: const Icon(Icons.info_outline_rounded),
-        ),
+        if (widget.companion.isAvailable)
+          IconButton(tooltip: '会话列表', onPressed: _showSessions, icon: const Icon(Icons.forum_outlined)),
+        IconButton(tooltip: '对话信息', onPressed: _showInfo, icon: const Icon(Icons.info_outline_rounded)),
       ],
     ),
     body: SafeArea(
@@ -132,20 +527,38 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         children: [
           Expanded(
-            // ponytail: eager children fit the short local demo; use a builder when histories are persisted.
-            child: ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              children: [
-                for (final message in _messages)
-                  _MessageBubble(message: message, color: widget.companion.color)
-                      .animate(key: ValueKey(message))
-                      .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
-                      .slideY(begin: 0.04, end: 0),
-                if (_isReplying) _TypingBubble(color: widget.companion.color),
-              ],
-            ),
+            child: _isLoadingConversation
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                    children: [
+                      for (final message in _messages)
+                        _MessageBubble(message: message, color: widget.companion.color)
+                            .animate(key: ValueKey(message.id))
+                            .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
+                            .slideY(begin: 0.04, end: 0),
+                      if (_isReplying) _TypingBubble(color: widget.companion.color),
+                    ],
+                  ),
           ),
+          if (_pendingMemories.isNotEmpty)
+            Semantics(
+              button: true,
+              label: '有 ${_pendingMemories.length} 条记忆等待确认',
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.psychology_outlined),
+                    title: Text('喵喵想记住 ${_pendingMemories.length} 件事'),
+                    subtitle: const Text('确认后才会用于后续对话'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onTap: _showMemories,
+                  ),
+                ),
+              ),
+            ),
           if (_messages.length == 1 && widget.companion.isAvailable)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -171,9 +584,7 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   IconButton(
                     tooltip: '语音输入',
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('语音演示：长按后即可说话')),
-                    ),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('语音输入暂未开放'))),
                     icon: const Icon(Icons.mic_none_rounded),
                   ),
                   Expanded(
@@ -181,16 +592,17 @@ class _ChatPageState extends State<ChatPage> {
                       controller: _inputController,
                       minLines: 1,
                       maxLines: 4,
+                      maxLength: 4000,
                       textInputAction: TextInputAction.send,
                       onChanged: (_) => setState(() {}),
                       onSubmitted: _send,
-                      decoration: const InputDecoration(hintText: '说说此刻的感受…'),
+                      decoration: const InputDecoration(hintText: '说说此刻的感受…', counterText: ''),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
                     tooltip: '发送',
-                    onPressed: _isReplying || _inputController.text.trim().isEmpty ? null : _send,
+                    onPressed: _isReplying || _isLoadingConversation || _inputController.text.trim().isEmpty ? null : _send,
                     icon: const Icon(Icons.arrow_upward_rounded),
                   ),
                 ],
@@ -203,11 +615,23 @@ class _ChatPageState extends State<ChatPage> {
   );
 }
 
-class _ChatMessage {
-  const _ChatMessage({required this.text, required this.fromUser});
+class _PreparedContext {
+  const _PreparedContext({required this.messages, required this.summary, required this.memories});
 
+  final List<StoredMessage> messages;
+  final String summary;
+  final List<MemoryEntry> memories;
+}
+
+class _ChatMessage {
+  const _ChatMessage({required this.id, required this.text, required this.fromUser});
+
+  final String id;
   final String text;
   final bool fromUser;
+
+  factory _ChatMessage.fromStored(StoredMessage message) =>
+      _ChatMessage(id: message.id, text: message.content, fromUser: message.role == MessageRole.user);
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -233,12 +657,7 @@ class _MessageBubble extends StatelessWidget {
         ),
         border: message.fromUser ? null : Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Text(
-        message.text,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: message.fromUser ? Colors.white : null,
-        ),
-      ),
+      child: Text(message.text, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: message.fromUser ? Colors.white : null)),
     ),
   );
 }
@@ -264,10 +683,7 @@ class _TypingBubble extends StatelessWidget {
         ),
         child: SizedBox(
           width: 36,
-          child: LinearProgressIndicator(
-            color: color,
-            backgroundColor: color.withValues(alpha: 0.12),
-          ),
+          child: LinearProgressIndicator(color: color, backgroundColor: color.withValues(alpha: 0.12)),
         ),
       ),
     ),
