@@ -106,7 +106,7 @@ class _SettingsPageState extends State<SettingsPage> {
         builder: (context) => AlertDialog(
           title: const Text('隐私说明'),
           content: const Text(
-            'Lumo 会将会话、摘要和你确认的记忆保存在这台设备的本地数据库中。\n\n发送消息时，当前所需上下文会通过 Cloudflare Pages 转发给 SenseNova 生成回复；不会创建账号或进行云端会话同步。你可以在喵喵的对话信息中分别清空会话和记忆。',
+            'Lumo 会将会话、摘要和你确认的记忆保存在这台设备的本地数据库中。\n\n发送消息时，当前所需上下文会通过 Cloudflare Pages 转发给 SenseNova 生成回复；不会创建账号或进行云端会话同步。你可以在每个智能体的对话信息中分别清空会话和记忆。',
           ),
           actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了'))],
         ),
