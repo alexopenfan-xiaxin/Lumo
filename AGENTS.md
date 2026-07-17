@@ -6,6 +6,8 @@ Do not run `flutter` or `dart` commands on this machine. This includes `flutter 
 
 Do not create a Git branch unless the user explicitly asks for one. Work on the current branch, or on `main` when the requested change is to be released directly.
 
+If GitHub Git over HTTPS is unavailable once, publish through the authenticated GitHub API instead of retrying the Git transport.
+
 Static file inspection and non-Flutter tooling are allowed. Flutter analysis, tests, and Android builds run only in GitHub Actions or another explicitly approved remote environment.
 
 ## Remote build workflows
