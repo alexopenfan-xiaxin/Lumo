@@ -9,6 +9,8 @@ void main() {
   });
 
   testWidgets('floating navigation reaches every primary page', (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     await tester.pumpWidget(const LumoApp());
     expect(find.text('七日微光计划'), findsWidgets);
 
