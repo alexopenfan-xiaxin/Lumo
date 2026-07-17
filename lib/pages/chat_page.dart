@@ -120,20 +120,18 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         children: [
           Expanded(
-            child: ListView.builder(
+            // ponytail: eager children fit the short local demo; use a builder when histories are persisted.
+            child: ListView(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              itemCount: _messages.length + (_isReplying ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return _TypingBubble(color: widget.companion.color);
-                }
-                final message = _messages[index];
-                return _MessageBubble(message: message, color: widget.companion.color)
-                    .animate()
-                    .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
-                    .slideY(begin: 0.04, end: 0);
-              },
+              children: [
+                for (final message in _messages)
+                  _MessageBubble(message: message, color: widget.companion.color)
+                      .animate(key: ValueKey(message))
+                      .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
+                      .slideY(begin: 0.04, end: 0),
+                if (_isReplying) _TypingBubble(color: widget.companion.color),
+              ],
             ),
           ),
           if (_messages.length == 1)
