@@ -27,8 +27,11 @@ class UpdateChecker {
       final body = jsonDecode(await utf8.decoder.bind(response).join());
       if (body is! Map<String, dynamic>) throw const FormatException('Invalid release');
       final tag = body['tag_name'];
-      final url = body['html_url'];
-      if (tag is! String || url is! String) throw const FormatException('Invalid release');
+      final assets = body['assets'];
+      if (tag is! String || assets is! List) throw const FormatException('Invalid release');
+      final asset = assets.whereType<Map<String, dynamic>>().where((item) => item['name'] == 'app-release.apk').firstOrNull;
+      final url = asset?['browser_download_url'];
+      if (url is! String) throw const FormatException('Missing APK');
       final match = RegExp(r'^v(\d+\.\d+\.\d+)-build\.\d+$').firstMatch(tag);
       final releaseUrl = Uri.tryParse(url);
       if (match == null || releaseUrl == null || releaseUrl.scheme != 'https' || releaseUrl.host != 'github.com') {
@@ -41,7 +44,7 @@ class UpdateChecker {
     }
   }
 
-  Future<void> openDownload(Uri url) => _channel.invokeMethod<void>('openUrl', url.toString());
+  Future<String> downloadAndInstall(Uri url) async => await _channel.invokeMethod<String>('downloadApk', url.toString()) ?? 'failed';
 }
 
 int compareVersions(String left, String right) {

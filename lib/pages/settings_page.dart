@@ -158,16 +158,20 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text('发现新版本 ${update.version}'),
-          content: const Text('将打开 GitHub Release 下载并安装 APK。'),
+          content: const Text('将在应用内下载 APK，下载完成后会打开系统安装器。'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后再说')),
             FilledButton(
               onPressed: () async {
                 Navigator.pop(context);
                 try {
-                  await UpdateChecker().openDownload(update.url);
+                  final result = await UpdateChecker().downloadAndInstall(update.url);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再点一次“检查更新”。' : '更新开始下载，完成后将打开安装器。')),
+                  );
                 } on PlatformException {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无法打开下载页面，请稍后再试。')));
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无法开始下载，请稍后再试。')));
                 }
               },
               child: const Text('去下载'),
