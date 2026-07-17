@@ -15,6 +15,8 @@ const meowSystemPrompt = `你是“喵喵”，Lumo 中唯一已开放的文字�
 - 若用户表示可能伤害自己或他人、处于紧急危险，保持镇定和陪伴，鼓励立刻联系当地紧急服务、危机热线或身边可信任的人；不要责备，也不要承诺保密。
 - 保持非露骨、尊重且适合广泛用户的互动。`;
 
+const primaryModel = 'deepseek-v4-flash';
+const fallbackModel = 'sensenova-6.7-flash-lite';
 const json = (body, status = 200) => Response.json(body, {status});
 
 const validMessages = (messages) =>
@@ -26,11 +28,40 @@ const validMessages = (messages) =>
       (role === 'user' || role === 'assistant') && typeof content === 'string' && content.trim().length > 0 && content.length <= 2000,
   );
 
+const requestReply = async (model, messages, apiToken) => {
+  try {
+    const upstream = await fetch('https://api.sensenova.cn/v1/llm/chat-completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_new_tokens: 480,
+        temperature: 0.82,
+        top_p: 0.9,
+        stream: false,
+        user: 'lumo-meow',
+      }),
+    });
+    const response = await upstream.json().catch(() => null);
+    const reply = response?.data?.choices?.[0]?.message;
+    return {
+      reply: typeof reply === 'string' && reply.trim() ? reply.trim() : null,
+      isRateLimited: upstream.status === 429 || response?.error?.code === 8,
+    };
+  } catch {
+    return {reply: null, isRateLimited: false};
+  }
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method !== 'POST' || url.pathname !== '/chat') return json({error: 'Not found'}, 404);
-    if (!env.SENSENOVA_API_TOKEN || !env.SENSENOVA_MODEL) return json({error: 'AI service is not configured'}, 503);
+    if (!env.SENSENOVA_API_TOKEN) return json({error: 'AI service is not configured'}, 503);
 
     let requestBody;
     try {
@@ -46,25 +77,9 @@ export default {
       {role: 'system', content: [{type: 'text', text: meowSystemPrompt}]},
       ...requestBody.messages.map(({role, content}) => ({role, content: [{type: 'text', text: content.trim()}]})),
     ];
-    const upstream = await fetch('https://api.sensenova.cn/v1/llm/chat-completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.SENSENOVA_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: env.SENSENOVA_MODEL,
-        messages,
-        max_new_tokens: 480,
-        temperature: 0.82,
-        top_p: 0.9,
-        stream: false,
-        user: 'lumo-meow',
-      }),
-    });
-    const response = await upstream.json().catch(() => null);
-    const reply = response?.data?.choices?.[0]?.message;
-    if (!upstream.ok || typeof reply !== 'string' || !reply.trim()) return json({error: 'AI service unavailable'}, 502);
-    return json({reply: reply.trim()});
+    let result = await requestReply(primaryModel, messages, env.SENSENOVA_API_TOKEN);
+    if (!result.reply && result.isRateLimited) result = await requestReply(fallbackModel, messages, env.SENSENOVA_API_TOKEN);
+    if (!result.reply) return json({error: 'AI service unavailable'}, 502);
+    return json({reply: result.reply});
   },
 };
