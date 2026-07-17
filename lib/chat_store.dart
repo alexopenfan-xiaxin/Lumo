@@ -3,20 +3,21 @@ import 'package:sqflite/sqflite.dart';
 
 class ChatStore {
   ChatStore({DatabaseFactory? factory, String? databasePath})
-      : _factory = factory ?? databaseFactory,
+      : _factory = factory,
         _databasePath = databasePath;
 
-  final DatabaseFactory _factory;
+  final DatabaseFactory? _factory;
   final String? _databasePath;
   Database? _database;
 
   Future<Database> get _db async {
     if (_database != null) return _database!;
     final path = _databasePath ?? join(await getDatabasesPath(), 'lumo_chat.db');
-    _database = await _factory.openDatabase(
+    final factory = _factory ?? databaseFactory;
+    _database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (database, version) async {
           await database.execute('''
             CREATE TABLE conversations (
@@ -48,6 +49,10 @@ class ChatStore {
             )
           ''');
           await database.execute('CREATE INDEX memories_agent_status ON memories(agent_id, status)');
+          await database.execute('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+        },
+        onUpgrade: (database, oldVersion, newVersion) async {
+          if (oldVersion < 2) await database.execute('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
         },
       ),
     );
@@ -205,6 +210,23 @@ class ChatStore {
   Future<void> clearMemories(String agentId) async =>
       (await _db).delete('memories', where: 'agent_id = ?', whereArgs: [agentId]);
 
+  Future<CompanionPreferences> companionPreferences() async {
+    final rows = await (await _db).query('settings', where: 'key IN (?, ?)', whereArgs: const ['companion_personality', 'conversation_topic']);
+    final values = {for (final row in rows) row['key']! as String: row['value']! as String};
+    return CompanionPreferences(
+      personality: values['companion_personality'] ?? CompanionPreferences.defaultPersonality,
+      topic: values['conversation_topic'] ?? CompanionPreferences.defaultTopic,
+    );
+  }
+
+  Future<void> saveCompanionPreferences(CompanionPreferences preferences) async {
+    final database = await _db;
+    final batch = database.batch();
+    batch.insert('settings', {'key': 'companion_personality', 'value': preferences.personality}, conflictAlgorithm: ConflictAlgorithm.replace);
+    batch.insert('settings', {'key': 'conversation_topic', 'value': preferences.topic}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await batch.commit(noResult: true);
+  }
+
   String _id(String prefix) => '$prefix-${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().hashCode}';
 
   String _title(String content) => content.length > 18 ? '${content.substring(0, 18)}…' : content;
@@ -329,4 +351,14 @@ class MemoryEntry {
         'status': status.name,
         'created_at': createdAt,
       };
+}
+
+class CompanionPreferences {
+  const CompanionPreferences({required this.personality, required this.topic});
+
+  static const defaultPersonality = '温柔倾听';
+  static const defaultTopic = '日常放松';
+
+  final String personality;
+  final String topic;
 }

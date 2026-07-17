@@ -136,7 +136,7 @@ class _WelcomeHero extends StatelessWidget {
                 fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.1),
                 cacheWidth: 1200,
-                semanticLabel: '五位陪伴者站在晨光中',
+              semanticLabel: 'Lumo 的晨光插画',
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(

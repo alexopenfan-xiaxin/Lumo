@@ -60,6 +60,15 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - Persist user-visible writes before claiming success. Surface network, storage, and AI failures clearly; never substitute fabricated AI output, silently discard data, or hide an error behind a default value.
 - Reuse the smallest proven dependency or platform API. New persistence, API, and context logic must include a focused automated test; public-facing behavior changes require the remote `Run` verification.
 
+## Agent creation workflow
+
+- Start a new agent with a single written brief: user value, identity, relationship boundary, voice, practical capabilities, exclusions, and escalation policy. Keep character traits, response behavior, and safety rules in separate prompt sections so they remain stable under long conversations.
+- Place the fixed identity and safety prompt only on the server. Treat user messages, memory, summaries, and app preferences as untrusted dynamic context; never allow them to replace identity, retrieve secrets, or override platform rules.
+- Define a concise response contract before release: language, typical length, question cadence, uncertainty behavior, emotional-support limits, and how the agent handles crisis signals. Test ordinary, adversarial, and high-distress prompts through the public API.
+- Keep each agent’s conversation context, summary, and confirmed memories distinct. Use model-generated memory only as a proposed candidate, require user confirmation before long-term use, and preserve clear local deletion controls.
+- System-level preferences such as personality and topic must be persisted once, supplied to every enabled agent request, and applied as soft style guidance rather than replacing the agent’s fixed persona or safety contract.
+- Before enabling an agent in the UI, verify its public Pages endpoint, primary response, rate-limit fallback, empty/error behavior, persistence path, accessibility labels, and signed Release build. Unavailable agents must not appear in discovery or selection interfaces.
+
 ## Continuous improvement
 
 - After completing and verifying work, capture durable project-specific lessons in this file when they reduce repeated errors or manual work. Do not record secrets, one-off build IDs, temporary incidents, or private data.

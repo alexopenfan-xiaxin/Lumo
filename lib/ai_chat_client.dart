@@ -6,12 +6,19 @@ class AiChatClient {
 
   final String _endpoint;
 
-  Future<String> reply(List<AiChatMessage> messages, {required String summary, required List<String> memories}) async {
+  Future<String> reply(
+    List<AiChatMessage> messages, {
+    required String summary,
+    required List<String> memories,
+    required String personality,
+    required String topic,
+  }) async {
     final response = await _request({
       'operation': 'chat',
       'messages': messages.map((message) => message.toJson()).toList(),
       'summary': summary,
       'memories': memories,
+      'preferences': {'personality': personality, 'topic': topic},
     });
     final reply = response['reply'];
     if (reply is! String || reply.trim().isEmpty) throw const AiChatException('喵喵暂时没能接上，稍后再试试吧。');

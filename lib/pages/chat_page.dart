@@ -118,12 +118,15 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       var context = await _prepareContext(conversation.id);
+      final preferences = await _store.companionPreferences();
       String reply;
       try {
         reply = await _aiChatClient.reply(
           context.messages.map(_asAiMessage).toList(),
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
+          personality: preferences.personality,
+          topic: preferences.topic,
         );
       } on AiContextLimitException {
         context = await _prepareContext(conversation.id, forceTrim: true);
@@ -131,6 +134,8 @@ class _ChatPageState extends State<ChatPage> {
           context.messages.map(_asAiMessage).toList(),
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
+          personality: preferences.personality,
+          topic: preferences.topic,
         );
       }
       final assistantMessage = await _store.addMessage(

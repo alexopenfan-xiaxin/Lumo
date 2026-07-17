@@ -34,6 +34,13 @@ const validMessages = (messages) =>
 const validMemories = (memories) =>
   Array.isArray(memories) && memories.length <= 100 && memories.every((memory) => typeof memory === 'string' && memory.length <= 240);
 
+const validPreferences = (preferences) =>
+  preferences &&
+  typeof preferences.personality === 'string' &&
+  preferences.personality.length <= 32 &&
+  typeof preferences.topic === 'string' &&
+  preferences.topic.length <= 32;
+
 const requestReply = async (model, messages, apiToken, maxTokens) => {
   try {
     const upstream = await fetch('https://token.sensenova.cn/v1/chat/completions', {
@@ -113,10 +120,11 @@ export default {
       return json({candidates: result.reply ? parseCandidates(result.reply) : []});
     }
 
-    if (operation !== 'chat' || typeof body.summary !== 'string' || body.summary.length > 3000) {
+    if (operation !== 'chat' || typeof body.summary !== 'string' || body.summary.length > 3000 || !validPreferences(body.preferences)) {
       return json({error: 'Invalid operation'}, 400);
     }
     const dynamicContext = [
+      {role: 'system', content: `全局陪伴偏好：性格为「${body.preferences.personality}」；优先围绕「${body.preferences.topic}」展开。自然遵循偏好，不要机械复述设置。`},
       ...(body.memories?.length ? [{role: 'system', content: `已确认的长期记忆：\n${body.memories.map((memory) => `- ${memory}`).join('\n')}`}]: []),
       ...(body.summary ? [{role: 'system', content: `早期会话摘要：\n${body.summary}`}]: []),
       ...body.messages,
