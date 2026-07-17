@@ -140,6 +140,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
   Future<void> _checkForUpdate() async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final update = await UpdateChecker().check();
       if (!mounted) return;
@@ -166,12 +167,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.pop(context);
                 try {
                   final result = await UpdateChecker().downloadAndInstall(update.url);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再点一次“检查更新”。' : '更新开始下载，完成后将打开安装器。')),
                   );
                 } on PlatformException {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无法开始下载，请稍后再试。')));
+                  messenger.showSnackBar(const SnackBar(content: Text('无法开始下载，请稍后再试。')));
                 }
               },
               child: const Text('去下载'),
