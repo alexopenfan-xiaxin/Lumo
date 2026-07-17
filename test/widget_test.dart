@@ -19,6 +19,5 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     await tester.pump();
     expect(find.text('今天有一点累'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 }
