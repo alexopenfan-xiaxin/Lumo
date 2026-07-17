@@ -22,6 +22,8 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
     expect(find.textContaining('最明显的感受'), findsOneWidget);
   });
 }
