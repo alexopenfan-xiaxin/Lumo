@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app_info.dart';
 import '../chat_store.dart';
+import '../update_checker.dart';
 import '../widgets.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -135,6 +139,53 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
 
+  Future<void> _checkForUpdate() async {
+    try {
+      final update = await UpdateChecker().check();
+      if (!mounted) return;
+      if (update == null) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('已是最新版本'),
+            content: Text('当前版本 $appVersion 已是 GitHub Release 中的最新版本。'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了'))],
+          ),
+        );
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('发现新版本 ${update.version}'),
+          content: const Text('将打开 GitHub Release 下载并安装 APK。'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后再说')),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  await UpdateChecker().openDownload(update.url);
+                } on PlatformException {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无法打开下载页面，请稍后再试。')));
+                }
+              },
+              child: const Text('去下载'),
+            ),
+          ],
+        ),
+      );
+    } on SocketException {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('网络不可用，暂时无法检查更新。')));
+    } on HttpException {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('更新服务暂不可用，请稍后再试。')));
+    } on FormatException {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('更新信息无效，请稍后再试。')));
+    } on Exception {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('暂时无法检查更新，请稍后再试。')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
@@ -213,13 +264,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               _SettingsTile(
+                icon: Icons.system_update_outlined,
+                title: '检查更新',
+                value: appVersion,
+                onTap: _checkForUpdate,
+              ),
+              _SettingsTile(
                 icon: Icons.info_outline_rounded,
                 title: '关于 Lumo',
-                value: '1.0.0',
+                value: appVersion,
                 onTap: () => showAboutDialog(
                   context: context,
                   applicationName: 'Lumo',
-                  applicationVersion: '1.0.0',
+                  applicationVersion: appVersion,
                   applicationLegalese: '© 2026 Lumo contributors',
                   applicationIcon: const LumoMark(size: 52),
                 ),
