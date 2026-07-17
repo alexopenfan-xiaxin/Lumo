@@ -82,6 +82,7 @@ class _DockItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
+      key: ValueKey('dock-${destination.label}'),
       label: destination.label,
       button: true,
       selected: selected,

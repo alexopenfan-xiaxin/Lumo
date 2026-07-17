@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumo/app.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -14,16 +15,19 @@ void main() {
     await tester.pumpWidget(const LumoApp());
     expect(find.text('七日微光计划'), findsWidgets);
 
-    expect(find.bySemanticsLabel('首页'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('智能体'));
+    final homeDock = find.byKey(const ValueKey('dock-首页'));
+    expect(homeDock, findsOneWidget);
+    expect(tester.getSemantics(homeDock), matchesSemantics(label: '首页', isButton: true, isSelected: true));
+
+    await tester.tap(find.byKey(const ValueKey('dock-智能体')));
     await tester.pumpAndSettle();
     expect(find.text('选择一位陪伴者延续对话'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('探索'));
+    await tester.tap(find.byKey(const ValueKey('dock-探索')));
     await tester.pumpAndSettle();
     expect(find.text('认识这里的陪伴者'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('设置'));
+    await tester.tap(find.byKey(const ValueKey('dock-设置')));
     await tester.pumpAndSettle();
     expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
   });
