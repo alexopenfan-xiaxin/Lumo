@@ -15,6 +15,8 @@ Static file inspection and non-Flutter tooling are allowed. Flutter analysis, te
 
 Never substitute one workflow for the other. Both workflows run remotely and upload their APK as a GitHub Actions artifact.
 
+`Run` reads its Android signing key only from GitHub Actions Secrets; never commit a keystore or `android/key.properties`.
+
 ## Implementation principles
 
 - Keep the four primary journeys complete: announcements, companions, discovery, and settings.

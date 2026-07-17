@@ -12,6 +12,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare Android release signing
+        env:
+          LUMO_KEYSTORE_BASE64: ${{ secrets.LUMO_KEYSTORE_BASE64 }}
+          LUMO_KEY_ALIAS: ${{ secrets.LUMO_KEY_ALIAS }}
+          LUMO_KEY_PASSWORD: ${{ secrets.LUMO_KEY_PASSWORD }}
+          LUMO_STORE_PASSWORD: ${{ secrets.LUMO_STORE_PASSWORD }}
+        run: |
+          test -n "$LUMO_KEYSTORE_BASE64" || { echo "Missing release signing secrets."; exit 1; }
+          printf '%s' "$LUMO_KEYSTORE_BASE64" | base64 --decode > android/app/lumo-release.jks
+          printf 'storeFile=lumo-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$LUMO_STORE_PASSWORD" "$LUMO_KEY_ALIAS" "$LUMO_KEY_PASSWORD" > android/key.properties
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
