@@ -25,6 +25,16 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - `Debug` remains unsigned by the release key and publishes only the `lumo-debug-apk` artifact; it must not create a GitHub Release.
 - Keep repository visibility public without exposing any secret in source, logs, workflow output, issues, or releases.
 
+## AI and Edge deployment
+
+- “喵喵” is the only currently available AI agent. Route only her conversation to the Edge `/chat` endpoint; every other agent must keep its UI entry but show `该智能体暂未开放，敬请期待。` when a user sends a message.
+- Never call SenseNova from Flutter and never pass its API token through `--dart-define`. The Android app receives only the public `LUMO_AI_ENDPOINT` GitHub Actions Variable, which must be the full HTTPS Worker `/chat` URL.
+- Keep the Meow system prompt, SenseNova token, model ID, request limits, and provider error handling in `edge/src/index.js`. Do not accept a client-supplied system prompt or agent ID other than `meow`.
+- Maintain Meow’s persona: soft, attentive, lightly tsundere cat-girl tone in natural Chinese; practical and non-manipulative; no medical diagnosis, no fabricated real-world presence, and immediate gentle escalation toward local emergency/professional support for self-harm or imminent-danger signals.
+- The manual `Deploy Edge` workflow requires `CLOUDFLARE_API_TOKEN` and `SENSENOVA_API_TOKEN` GitHub Secrets plus a verified, account-available DeepSeek model ID in the `SENSENOVA_MODEL` GitHub Variable. Query the provider’s model list before changing the model ID; do not guess it.
+- Deploy the Worker before a public release, then set `LUMO_AI_ENDPOINT` to its HTTPS `/chat` URL and run `Run`. The app must surface a clear retryable error instead of fabricating an AI reply when the endpoint or provider is unavailable.
+- Treat an API token sent in chat, source, build logs, or a public release as compromised: rotate it in the provider console and update only the corresponding GitHub Secret. Never add it to a local tracked file.
+
 ## Continuous improvement
 
 - After completing and verifying work, capture durable project-specific lessons in this file when they reduce repeated errors or manual work. Do not record secrets, one-off build IDs, temporary incidents, or private data.

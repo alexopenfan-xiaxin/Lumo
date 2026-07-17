@@ -25,3 +25,6 @@ Thumbs.db
 # Local design verification artifacts
 output/
 
+# Cloudflare Worker secrets
+.dev.vars
+.wrangler/

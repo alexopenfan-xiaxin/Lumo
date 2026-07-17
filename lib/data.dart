@@ -16,6 +16,7 @@ class Companion {
     required this.lastMessage,
     required this.lastTime,
     required this.openingMessage,
+    this.isAvailable = false,
     this.unread = 0,
   });
 
@@ -29,10 +30,24 @@ class Companion {
   final String lastMessage;
   final String lastTime;
   final String openingMessage;
+  final bool isAvailable;
   final int unread;
 }
 
 const companions = <Companion>[
+  Companion(
+    id: 'meow',
+    name: '喵喵',
+    glyph: '喵',
+    tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你',
+    category: CompanionCategory.listener,
+    color: Color(0xFFC9829D),
+    people: '首位开放的智能体',
+    lastMessage: '哼，我才不是一直在等你呢。',
+    lastTime: '现在',
+    openingMessage: '你来啦？我、我刚好有空而已喔。今天想让喵喵陪你聊点什么？',
+    isAvailable: true,
+  ),
   Companion(
     id: 'warm-light',
     name: '暖时光',
@@ -163,4 +178,3 @@ String categoryLabel(CompanionCategory category) => switch (category) {
   CompanionCategory.counselor => '心理咨询',
   CompanionCategory.life => '生活陪伴',
 };
-

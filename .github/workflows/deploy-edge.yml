@@ -1,0 +1,31 @@
+name: Deploy Edge
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate edge configuration
+        env:
+          SENSENOVA_API_TOKEN: ${{ secrets.SENSENOVA_API_TOKEN }}
+          SENSENOVA_MODEL: ${{ vars.SENSENOVA_MODEL }}
+        run: |
+          test -n "$SENSENOVA_API_TOKEN" || { echo "Missing SENSENOVA_API_TOKEN secret."; exit 1; }
+          test -n "$SENSENOVA_MODEL" || { echo "Missing SENSENOVA_MODEL variable."; exit 1; }
+      - name: Set SenseNova API token
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SENSENOVA_API_TOKEN: ${{ secrets.SENSENOVA_API_TOKEN }}
+        run: printf '%s' "$SENSENOVA_API_TOKEN" | npx wrangler@4 secret put SENSENOVA_API_TOKEN --config edge/wrangler.toml
+      - name: Deploy worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SENSENOVA_MODEL: ${{ vars.SENSENOVA_MODEL }}
+        run: npx wrangler@4 deploy --config edge/wrangler.toml --var SENSENOVA_MODEL:"$SENSENOVA_MODEL"

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../ai_chat_client.dart';
 import '../data.dart';
 import '../widgets.dart';
 
@@ -18,6 +19,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+  final _aiChatClient = AiChatClient();
   late final List<_ChatMessage> _messages = [
     _ChatMessage(text: widget.companion.openingMessage, fromUser: false),
   ];
@@ -45,9 +47,13 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  void _send([String? suggestedText]) {
+  Future<void> _send([String? suggestedText]) async {
     final text = (suggestedText ?? _inputController.text).trim();
     if (text.isEmpty || _isReplying) return;
+    if (!widget.companion.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('该智能体暂未开放，敬请期待。')));
+      return;
+    }
     HapticFeedback.lightImpact();
     setState(() {
       _messages.add(_ChatMessage(text: text, fromUser: true));
@@ -55,19 +61,24 @@ class _ChatPageState extends State<ChatPage> {
       _isReplying = true;
     });
     _scrollToEnd();
-    Future<void>.delayed(const Duration(milliseconds: 760), () {
+    try {
+      final reply = await _aiChatClient.reply(
+        _messages
+            .map((message) => AiChatMessage(role: message.fromUser ? 'user' : 'assistant', content: message.text))
+            .toList(),
+      );
+      if (mounted) {
+        setState(() => _messages.add(_ChatMessage(text: reply, fromUser: false)));
+      }
+    } on AiChatException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
       if (!mounted) return;
       setState(() {
-        _messages.add(
-          const _ChatMessage(
-            text: '听起来这件事占据了你不少心绪。我们不急着解决它——此刻最明显的感受是什么？',
-            fromUser: false,
-          ),
-        );
         _isReplying = false;
       });
       _scrollToEnd();
-    });
+    }
   }
 
   @override
@@ -93,7 +104,7 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  Text('此刻在线', style: Theme.of(context).textTheme.bodySmall),
+                  Text(widget.companion.isAvailable ? '此刻在线' : '暂未开放', style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ],
@@ -134,7 +145,7 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-          if (_messages.length == 1)
+          if (_messages.length == 1 && widget.companion.isAvailable)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
