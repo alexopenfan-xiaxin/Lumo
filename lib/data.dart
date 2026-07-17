@@ -17,7 +17,7 @@ class Companion {
     required this.lastTime,
     required this.openingMessage,
     this.avatarAsset,
-    this.isAvailable = false,
+    this.isAvailable = true,
     this.unread = 0,
   });
 
@@ -63,7 +63,7 @@ const companions = <Companion>[
     lastTime: '现在',
     openingMessage: '嗨，我是 KUN。今天的你，有没有为自己的热爱多努力一点点？',
     avatarAsset: 'assets/images/kun_avatar.jpg',
-    isAvailable: false,
+    isAvailable: true,
   ),
 ];
 
