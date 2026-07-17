@@ -152,8 +152,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<_PreparedContext> _prepareContext(String conversationId, {bool forceTrim = false}) async {
-    var conversation = await _store.conversation(conversationId);
-    if (conversation == null) throw const AiChatException('当前会话已不存在。');
+    final existingConversation = await _store.conversation(conversationId);
+    if (existingConversation == null) throw const AiChatException('当前会话已不存在。');
+    var conversation = existingConversation;
     var shouldForceTrim = forceTrim;
     while (true) {
       final messages = await _store.messages(conversation.id);
