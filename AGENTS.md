@@ -33,6 +33,7 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - Maintain Meow’s persona: soft, attentive, lightly tsundere cat-girl tone in natural Chinese; practical and non-manipulative; no medical diagnosis, no fabricated real-world presence, and immediate gentle escalation toward local emergency/professional support for self-harm or imminent-danger signals.
 - Deploy `pages/` directly from this logged-in machine with `wrangler pages deploy` on the Cloudflare free plan; do not use a GitHub Actions deployment workflow. Store `SENSENOVA_API_TOKEN` only with `wrangler pages secret put SENSENOVA_API_TOKEN`.
 - Use `deepseek-v4-flash` as the primary model. Retry exactly once with `sensenova-6.7-flash-lite` only when the provider reports rate/limit exhaustion (HTTP 429 or provider code 8); do not query or guess model IDs.
+- Use the OpenAI-compatible SenseNova endpoint `https://token.sensenova.cn/v1/chat/completions`, with string message content and `choices[0].message.content` responses. Do not use the legacy `api.sensenova.cn/v1/llm` protocol for this `sk-` API key.
 - After Wrangler deploy, set `LUMO_AI_ENDPOINT` to the deployed HTTPS Pages `/chat` URL using a GitHub Actions Variable, then run `Run`. The app must surface a clear retryable error instead of fabricating an AI reply when the endpoint or provider is unavailable.
 - Treat an API token sent in chat, source, build logs, or a public release as compromised: rotate it in the provider console and update only the corresponding GitHub Secret. Never add it to a local tracked file.
 

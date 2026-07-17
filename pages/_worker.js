@@ -30,7 +30,7 @@ const validMessages = (messages) =>
 
 const requestReply = async (model, messages, apiToken) => {
   try {
-    const upstream = await fetch('https://api.sensenova.cn/v1/llm/chat-completions', {
+    const upstream = await fetch('https://token.sensenova.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -39,15 +39,14 @@ const requestReply = async (model, messages, apiToken) => {
       body: JSON.stringify({
         model,
         messages,
-        max_new_tokens: 480,
+        max_tokens: 480,
         temperature: 0.82,
         top_p: 0.9,
         stream: false,
-        user: 'lumo-meow',
       }),
     });
     const response = await upstream.json().catch(() => null);
-    const reply = response?.data?.choices?.[0]?.message;
+    const reply = response?.choices?.[0]?.message?.content;
     return {
       reply: typeof reply === 'string' && reply.trim() ? reply.trim() : null,
       isRateLimited: upstream.status === 429 || response?.error?.code === 8,
@@ -74,8 +73,8 @@ export default {
     }
 
     const messages = [
-      {role: 'system', content: [{type: 'text', text: meowSystemPrompt}]},
-      ...requestBody.messages.map(({role, content}) => ({role, content: [{type: 'text', text: content.trim()}]})),
+      {role: 'system', content: meowSystemPrompt},
+      ...requestBody.messages.map(({role, content}) => ({role, content: content.trim()})),
     ];
     let result = await requestReply(primaryModel, messages, env.SENSENOVA_API_TOKEN);
     if (!result.reply && result.isRateLimited) result = await requestReply(fallbackModel, messages, env.SENSENOVA_API_TOKEN);
