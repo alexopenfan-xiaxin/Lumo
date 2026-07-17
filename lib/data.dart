@@ -90,10 +90,10 @@ class NoticeItem {
 const notices = <NoticeItem>[
   NoticeItem(
     tag: '更新',
-    title: '智能体性格系统升级',
-    description: '所有陪伴者新增了共情能力，对话更自然。',
-    detail: '现在，陪伴者会更准确地理解你的语气和情绪线索，并延续上一段对话的上下文。你仍然可以在设置中随时调整陪伴性格。',
-    time: '2小时前',
+    title: '1.3.0：轻盈导航与 arm64 版本',
+    description: '底部导航焕新，Release APK 体积更小。',
+    detail: '现在可使用更轻盈的悬浮导航切换页面。为减少下载体积，1.3.0 起的 Release APK 仅支持 64 位 Android 设备；32 位设备请继续使用当前已安装版本。可在“设置 → 检查更新”下载适配版本。',
+    time: '刚刚',
     color: LumoColors.clay,
     icon: Icons.auto_awesome_rounded,
   ),

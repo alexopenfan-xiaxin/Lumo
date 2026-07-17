@@ -95,14 +95,6 @@ ThemeData buildLumoTheme(Brightness brightness) {
         borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
     ),
-    navigationBarTheme: NavigationBarThemeData(
-      height: 72,
-      backgroundColor: scheme.surface,
-      indicatorColor: scheme.primary.withValues(alpha: 0.14),
-      labelTextStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: foreground),
-      ),
-    ),
     dividerColor: border,
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
