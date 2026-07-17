@@ -17,7 +17,7 @@ void main() {
 
     final homeDock = find.byKey(const ValueKey('dock-首页'));
     expect(homeDock, findsOneWidget);
-    expect(tester.getSemantics(homeDock), matchesSemantics(label: '首页', isButton: true, isSelected: true));
+    expect(tester.getSemantics(homeDock), containsSemantics(label: '首页', isButton: true, isSelected: true, hasTapAction: true));
 
     await tester.tap(find.byKey(const ValueKey('dock-智能体')));
     await tester.pumpAndSettle();

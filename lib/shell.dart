@@ -100,7 +100,7 @@ class _DockItem extends StatelessWidget {
               Icon(selected ? destination.selectedIcon : destination.icon, color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
               AnimatedSize(
                 duration: duration,
-                child: selected ? Padding(padding: const EdgeInsets.only(left: 6), child: Text(destination.label, style: Theme.of(context).textTheme.labelLarge)) : const SizedBox.shrink(),
+                child: selected ? Padding(padding: const EdgeInsets.only(left: 6), child: ExcludeSemantics(child: Text(destination.label, style: Theme.of(context).textTheme.labelLarge))) : const SizedBox.shrink(),
               ),
             ],
           ),
