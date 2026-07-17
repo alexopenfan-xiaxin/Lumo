@@ -11,7 +11,6 @@ void main() {
 
   testWidgets('floating navigation reaches every primary page', (tester) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     await tester.pumpWidget(const LumoApp());
     expect(find.text('七日微光计划'), findsWidgets);
 
@@ -30,5 +29,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dock-设置')));
     await tester.pumpAndSettle();
     expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
+    semantics.dispose();
   });
 }
