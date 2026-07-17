@@ -73,11 +73,12 @@ class _ChatPageState extends State<ChatPage> {
     } on AiChatException catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isReplying = false;
-      });
-      _scrollToEnd();
+      if (mounted) {
+        setState(() {
+          _isReplying = false;
+        });
+        _scrollToEnd();
+      }
     }
   }
 
