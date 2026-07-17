@@ -24,7 +24,7 @@ class _ChatPageState extends State<ChatPage> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _aiChatClient = AiChatClient();
-  final _store = ChatStore();
+  late final ChatStore _store;
   late List<_ChatMessage> _messages = [_ChatMessage(id: 'opening', text: widget.companion.openingMessage, fromUser: false)];
   Conversation? _conversation;
   List<MemoryEntry> _pendingMemories = const [];
@@ -34,7 +34,10 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.companion.isAvailable) unawaited(_loadConversation());
+    if (widget.companion.isAvailable) {
+      _store = ChatStore();
+      unawaited(_loadConversation());
+    }
   }
 
   @override
