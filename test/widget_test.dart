@@ -15,7 +15,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.people_outline_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('和喵喵延续每一段对话'), findsOneWidget);
+    expect(find.text('选择一位陪伴者延续对话'), findsOneWidget);
 
     await tester.tap(find.text('喵喵').first);
     await tester.pump();

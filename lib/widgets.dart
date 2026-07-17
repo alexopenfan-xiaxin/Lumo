@@ -63,10 +63,10 @@ class CompanionAvatar extends StatelessWidget {
         ),
         child: SizedBox.square(
           dimension: size,
-          child: companion.id == 'meow'
+          child: companion.avatarAsset != null
               ? ClipOval(
                   child: Image.asset(
-                    'assets/images/meow_avatar.jpg',
+                    companion.avatarAsset!,
                     fit: BoxFit.cover,
                     alignment: const Alignment(0, -0.2),
                     excludeFromSemantics: true,

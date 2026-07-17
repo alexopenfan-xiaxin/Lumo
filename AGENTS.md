@@ -4,6 +4,8 @@
 
 Do not run `flutter` or `dart` commands on this machine. This includes `flutter pub get`, `flutter analyze`, `flutter test`, `flutter build`, `dart format`, and any wrapper or script that invokes Flutter or Dart locally.
 
+Do not create a Git branch unless the user explicitly asks for one. Work on the current branch, or on `main` when the requested change is to be released directly.
+
 Static file inspection and non-Flutter tooling are allowed. Flutter analysis, tests, and Android builds run only in GitHub Actions or another explicitly approved remote environment.
 
 ## Remote build workflows
@@ -27,9 +29,9 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 
 ## AI and Cloudflare Pages deployment
 
-- “喵喵” is the only currently available AI agent. Route only her conversation to the Cloudflare Pages `/chat` endpoint; every other agent must keep its UI entry but show `该智能体暂未开放，敬请期待。` when a user sends a message.
+- All agents defined in `lib/data.dart` are available by default. Route each agent's conversation to the Cloudflare Pages `/chat` endpoint with its own `agentId`; the server selects the matching fixed identity prompt.
 - Never call SenseNova from Flutter and never pass its API token through `--dart-define`. The Android app receives only the public `LUMO_AI_ENDPOINT` GitHub Actions Variable, which must be the full HTTPS Pages `/chat` URL.
-- Keep the Meow system prompt, SenseNova token, model ID, request limits, and provider error handling in `pages/_worker.js`. Do not accept a client-supplied system prompt or agent ID other than `meow`.
+- Keep each agent's fixed identity prompt, SenseNova token, model ID, request limits, and provider error handling in `pages/_worker.js`. Do not accept a client-supplied system prompt or agent ID other than the configured agents.
 - Maintain Meow’s persona: soft, attentive, lightly tsundere cat-girl tone in natural Chinese; practical and non-manipulative; no medical diagnosis, no fabricated real-world presence, and immediate gentle escalation toward local emergency/professional support for self-harm or imminent-danger signals.
 - Deploy `pages/` directly from this logged-in machine with `wrangler pages deploy` on the Cloudflare free plan; do not use a GitHub Actions deployment workflow. Store `SENSENOVA_API_TOKEN` only with `wrangler pages secret put SENSENOVA_API_TOKEN`.
 - Use `deepseek-v4-flash` as the primary model. Retry exactly once with `sensenova-6.7-flash-lite` only when the provider reports rate/limit exhaustion (HTTP 429 or provider code 8); do not query or guess model IDs.
@@ -39,10 +41,10 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 
 ### Conversation data and memory
 
-- Store Meow conversations, messages, summaries, and memory candidates only in the local SQLite database. Multiple named conversations are supported; other agents remain unavailable.
-- The app-side dynamic context limit is 128k conservative UTF-8-byte tokens and excludes only Meow's fixed persona. It includes approved memories, rolling summary, and raw messages.
+- Store conversations, messages, summaries, and memory candidates per agent in the local SQLite database. Multiple named conversations are supported for every available agent.
+- The app-side dynamic context limit is 128k conservative UTF-8-byte tokens and excludes only the current agent's fixed persona. It includes approved memories, rolling summary, and raw messages.
 - When dynamic context exceeds the limit, summarize the earliest source messages successfully before permanently deleting their local rows. Do not silently discard raw messages or delete an unsummarized batch.
-- The model decides whether to propose memories after a completed exchange. A candidate is never used until the user explicitly approves it; approved memories are shared across Meow conversations.
+- The model decides whether to propose memories after a completed exchange. A candidate is never used until the user explicitly approves it; approved memories are shared across the same agent's conversations.
 - Keep memory candidates concise (240 characters or fewer), expose accept/edit/delete controls, and provide separately confirmed deletion for the current conversation, all conversations, and all memories.
 
 ## Announcement publishing

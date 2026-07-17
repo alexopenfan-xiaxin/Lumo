@@ -8,8 +8,7 @@ import 'chat_page.dart';
 class ExplorePage extends StatelessWidget {
   const ExplorePage({super.key});
 
-  void _openChat(BuildContext context) {
-    final companion = companions.single;
+  void _openChat(BuildContext context, Companion companion) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChatPage(companion: companion, heroTag: 'explore-${companion.id}'),
@@ -17,8 +16,7 @@ class ExplorePage extends StatelessWidget {
     );
   }
 
-  void _showDetails(BuildContext context) {
-    final companion = companions.single;
+  void _showDetails(BuildContext context, Companion companion) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -39,12 +37,14 @@ class ExplorePage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    _openChat(context);
-                  },
+                  onPressed: companion.isAvailable
+                      ? () {
+                          Navigator.pop(sheetContext);
+                          _openChat(context, companion);
+                        }
+                      : null,
                   icon: const Icon(Icons.chat_bubble_outline_rounded),
-                  label: const Text('开始聊天'),
+                  label: Text(companion.isAvailable ? '开始聊天' : '暂未开放'),
                 ),
               ),
             ],
@@ -56,7 +56,6 @@ class ExplorePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final companion = companions.single;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final duration = reduceMotion ? Duration.zero : 280.ms;
     final horizontalPadding = lumoHorizontalPadding(context);
@@ -65,30 +64,34 @@ class ExplorePage extends StatelessWidget {
         key: const PageStorageKey('explore-scroll'),
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
-          const LumoPageTitle(title: '探索', subtitle: '认识此刻唯一开放的陪伴者'),
+          const LumoPageTitle(title: '探索', subtitle: '认识这里的陪伴者'),
           const SizedBox(height: 24),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => _showDetails(context),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Hero(tag: 'explore-${companion.id}', child: CompanionAvatar(companion: companion, size: 96)),
-                    const SizedBox(height: 16),
-                    Text(companion.name, style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(companion.tagline, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
-                    const SizedBox(height: 18),
-                    FilledButton(onPressed: () => _openChat(context), child: const Text('和喵喵聊聊')),
-                  ],
+          for (var index = 0; index < companions.length; index++) ...[
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => _showDetails(context, companions[index]),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Hero(tag: 'explore-${companions[index].id}', child: CompanionAvatar(companion: companions[index], size: 96)),
+                      const SizedBox(height: 16),
+                      Text(companions[index].name, style: Theme.of(context).textTheme.headlineMedium),
+                      const SizedBox(height: 6),
+                      Text(companions[index].tagline, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
+                      const SizedBox(height: 18),
+                      FilledButton(
+                        onPressed: companions[index].isAvailable ? () => _openChat(context, companions[index]) : null,
+                        child: Text(companions[index].isAvailable ? '和${companions[index].name}聊聊' : '暂未开放'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ).animate().fadeIn(duration: duration).slideY(begin: 0.04, end: 0, duration: duration),
-          const SizedBox(height: 18),
-          Text('更多智能体正在准备中。现在，喵喵会陪你慢慢把话说完。', style: Theme.of(context).textTheme.bodyMedium),
+            ).animate().fadeIn(duration: duration).slideY(begin: 0.04, end: 0, duration: duration),
+            if (index < companions.length - 1) const SizedBox(height: 18),
+          ],
         ],
       ),
     );

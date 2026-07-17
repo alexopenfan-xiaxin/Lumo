@@ -123,6 +123,7 @@ class _ChatPageState extends State<ChatPage> {
       try {
         reply = await _aiChatClient.reply(
           context.messages.map(_asAiMessage).toList(),
+          agentId: widget.companion.id,
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
           personality: preferences.personality,
@@ -132,6 +133,7 @@ class _ChatPageState extends State<ChatPage> {
         context = await _prepareContext(conversation.id, forceTrim: true);
         reply = await _aiChatClient.reply(
           context.messages.map(_asAiMessage).toList(),
+          agentId: widget.companion.id,
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
           personality: preferences.personality,
@@ -176,7 +178,11 @@ class _ChatPageState extends State<ChatPage> {
       final ids = messageIds.toSet();
       final batch = _summaryBatch(messages.where((message) => ids.contains(message.id)).toList());
       if (batch.isEmpty) throw const AiChatException('上下文内容过大，无法继续整理。');
-      final summary = await _aiChatClient.summarize(conversation.summary, batch.map(_asAiMessage).toList());
+      final summary = await _aiChatClient.summarize(
+        conversation.summary,
+        batch.map(_asAiMessage).toList(),
+        agentId: widget.companion.id,
+      );
       await _store.replaceSummaryAndDeleteMessages(
         conversationId: conversation.id,
         summary: summary,
@@ -210,6 +216,7 @@ class _ChatPageState extends State<ChatPage> {
       final candidates = await _aiChatClient.memoryCandidates(
         messages.skip(messages.length - 2).map(_asAiMessage).toList(),
         approved.take(100).map((memory) => memory.content).toList(),
+        agentId: widget.companion.id,
       );
       if (candidates.isEmpty) return;
       await _store.addMemoryCandidates(widget.companion.id, candidates);
@@ -315,7 +322,7 @@ class _ChatPageState extends State<ChatPage> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.psychology_outlined),
-                title: const Text('喵喵的记忆'),
+                title: Text('${widget.companion.name}的记忆'),
                 subtitle: Text('${_pendingMemories.length} 条等待确认'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -341,7 +348,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: const Text('清空全部会话'),
                 onTap: () async {
                   Navigator.pop(sheetContext);
-                  if (await _confirm('清空全部会话？', '所有喵喵会话与摘要都会永久删除。')) {
+                  if (await _confirm('清空全部会话？', '所有${widget.companion.name}会话与摘要都会永久删除。')) {
                     await _store.clearConversations(widget.companion.id);
                     await _loadConversation(createNew: true);
                   }
@@ -385,7 +392,7 @@ class _ChatPageState extends State<ChatPage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('喵喵的记忆', style: Theme.of(context).textTheme.titleLarge),
+                      Text('${widget.companion.name}的记忆', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 4),
                       Text('只有确认后的内容会在后续对话中使用。', style: Theme.of(context).textTheme.bodySmall),
                       const SizedBox(height: 12),
@@ -560,7 +567,7 @@ class _ChatPageState extends State<ChatPage> {
                 child: Card(
                   child: ListTile(
                     leading: const Icon(Icons.psychology_outlined),
-                    title: Text('喵喵想记住 ${_pendingMemories.length} 件事'),
+                    title: Text('${widget.companion.name}想记住 ${_pendingMemories.length} 件事'),
                     subtitle: const Text('确认后才会用于后续对话'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     onTap: _showMemories,

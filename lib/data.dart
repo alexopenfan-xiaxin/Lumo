@@ -16,7 +16,8 @@ class Companion {
     required this.lastMessage,
     required this.lastTime,
     required this.openingMessage,
-    this.isAvailable = false,
+    this.avatarAsset,
+    this.isAvailable = true,
     this.unread = 0,
   });
 
@@ -30,6 +31,7 @@ class Companion {
   final String lastMessage;
   final String lastTime;
   final String openingMessage;
+  final String? avatarAsset;
   final bool isAvailable;
   final int unread;
 }
@@ -46,6 +48,21 @@ const companions = <Companion>[
     lastMessage: '哼，我才不是一直在等你呢。',
     lastTime: '现在',
     openingMessage: '你来啦？我、我刚好有空而已喔。今天想让喵喵陪你聊点什么？',
+    avatarAsset: 'assets/images/meow_avatar.jpg',
+    isAvailable: true,
+  ),
+  Companion(
+    id: 'kun',
+    name: 'KUN',
+    glyph: '坤',
+    tagline: '用音乐和舞台传递温柔力量的 KUN，愿陪你守住自己的节奏',
+    category: CompanionCategory.life,
+    color: Color(0xFFD4AF37),
+    people: '已开放的音乐陪伴者',
+    lastMessage: '花花世界，静守己心。',
+    lastTime: '现在',
+    openingMessage: '嗨，我是 KUN。今天的你，有没有为自己的热爱多努力一点点？',
+    avatarAsset: 'assets/images/kun_avatar.jpg',
     isAvailable: true,
   ),
 ];
