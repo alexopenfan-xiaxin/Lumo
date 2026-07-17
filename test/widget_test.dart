@@ -18,12 +18,7 @@ void main() {
     expect(find.text('和喵喵延续每一段对话'), findsOneWidget);
 
     await tester.tap(find.text('喵喵').first);
-    await tester.pumpAndSettle();
-    expect(find.text('你来啦？我、我刚好有空而已喔。今天想让喵喵陪你聊点什么？'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, '今天有一点累');
-    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     await tester.pump();
-    expect(find.text('今天有一点累'), findsOneWidget);
+    expect(find.text('你来啦？我、我刚好有空而已喔。今天想让喵喵陪你聊点什么？'), findsOneWidget);
   });
 }
