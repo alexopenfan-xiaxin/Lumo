@@ -25,6 +25,15 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - `Debug` remains unsigned by the release key and publishes only the `lumo-debug-apk` artifact; it must not create a GitHub Release.
 - Keep repository visibility public without exposing any secret in source, logs, workflow output, issues, or releases.
 
+## Continuous improvement
+
+- After completing and verifying work, capture durable project-specific lessons in this file when they reduce repeated errors or manual work. Do not record secrets, one-off build IDs, temporary incidents, or private data.
+- Before changing this project, read these rules and reuse established patterns, assets, dependencies, and workflows before adding new ones.
+- Autonomously make small, scoped, reversible improvements that directly support the active request, then verify them at the appropriate risk level.
+- Keep rules concise, actionable, and current: remove or correct a rule when it is contradicted by verified project reality.
+- Do not self-authorize changes that alter product direction, public behavior, architecture, security posture, costs, external services, repository visibility, or signing ownership. Ask the user first.
+- Treat failed checks and user corrections as root-cause signals: fix the shared cause, add the smallest suitable verification, and record the lesson here only when it will recur.
+
 ## Implementation principles
 
 - Keep the four primary journeys complete: announcements, companions, discovery, and settings.
