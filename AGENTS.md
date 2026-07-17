@@ -6,6 +6,15 @@ Do not run `flutter` or `dart` commands on this machine. This includes `flutter 
 
 Static file inspection and non-Flutter tooling are allowed. Flutter analysis, tests, and Android builds run only in GitHub Actions or another explicitly approved remote environment.
 
+## Remote build workflows
+
+| Workflow | Build output | Use |
+| --- | --- | --- |
+| `Run` | Release APK | Distribution-ready build. |
+| `Debug` | Debug APK | Development and device debugging. |
+
+Never substitute one workflow for the other. Both workflows run remotely and upload their APK as a GitHub Actions artifact.
+
 ## Implementation principles
 
 - Keep the four primary journeys complete: announcements, companions, discovery, and settings.
@@ -13,4 +22,3 @@ Static file inspection and non-Flutter tooling are allowed. Flutter analysis, te
 - Keep touch targets at least 44×44 logical pixels and add semantics to custom interactions.
 - Respect `MediaQuery.disableAnimations`; motion must explain state or navigation.
 - Reuse the design tokens in `lib/theme.dart`; do not scatter new brand colors through widgets.
-
