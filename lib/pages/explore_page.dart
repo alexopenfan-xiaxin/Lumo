@@ -110,7 +110,7 @@ class _ExplorePageState extends State<ExplorePage> {
             padding: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 28),
             sliver: SliverList.separated(
               itemCount: filtered.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) => _CompanionCard(
                 companion: filtered[index],
                 heroTag: 'explore-${filtered[index].id}',

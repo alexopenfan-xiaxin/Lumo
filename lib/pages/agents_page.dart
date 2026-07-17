@@ -122,7 +122,7 @@ class _AgentsPageState extends State<AgentsPage> {
               padding: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 28),
               sliver: SliverList.separated(
                 itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                separatorBuilder: (_, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) => _ConversationCard(
                   companion: filtered[index],
                   heroTag: 'agents-${filtered[index].id}',

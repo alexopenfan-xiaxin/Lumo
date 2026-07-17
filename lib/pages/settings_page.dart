@@ -89,13 +89,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 child: Text(title, style: Theme.of(context).textTheme.titleLarge),
               ),
-              for (final item in values)
-                RadioListTile<String>(
-                  value: item,
-                  groupValue: current,
-                  title: Text(item),
-                  onChanged: (selected) => Navigator.pop(context, selected),
+              RadioGroup<String>(
+                groupValue: current,
+                onChanged: (selected) => Navigator.pop(context, selected),
+                child: Column(
+                  children: [
+                    for (final item in values)
+                      RadioListTile<String>(
+                        value: item,
+                        selected: item == current,
+                        title: Text(item),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
