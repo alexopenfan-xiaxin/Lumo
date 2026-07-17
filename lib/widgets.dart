@@ -63,16 +63,25 @@ class CompanionAvatar extends StatelessWidget {
         ),
         child: SizedBox.square(
           dimension: size,
-          child: Center(
-            child: Text(
-              companion.glyph,
-              style: TextStyle(
-                fontFamily: 'LumoDisplay',
-                color: Colors.white,
-                fontSize: size * 0.36,
-              ),
-            ),
-          ),
+          child: companion.id == 'meow'
+              ? ClipOval(
+                  child: Image.asset(
+                    'assets/images/meow_avatar.jpg',
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0, -0.2),
+                    excludeFromSemantics: true,
+                  ),
+                )
+              : Center(
+                  child: Text(
+                    companion.glyph,
+                    style: TextStyle(
+                      fontFamily: 'LumoDisplay',
+                      color: Colors.white,
+                      fontSize: size * 0.36,
+                    ),
+                  ),
+                ),
         ),
       ),
     );
