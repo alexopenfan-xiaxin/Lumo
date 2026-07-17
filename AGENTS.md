@@ -10,12 +10,20 @@ Static file inspection and non-Flutter tooling are allowed. Flutter analysis, te
 
 | Workflow | Build output | Use |
 | --- | --- | --- |
-| `Run` | Release APK | Distribution-ready build. |
-| `Debug` | Debug APK | Development and device debugging. |
+| `Run` | Signed release APK, Actions artifact, and GitHub Release | Distribution and public download. |
+| `Debug` | Debug APK and Actions artifact | Development and device debugging. |
 
-Never substitute one workflow for the other. Both workflows run remotely and upload their APK as a GitHub Actions artifact.
+Never substitute one workflow for the other. Both workflows are manual GitHub Actions dispatches; do not use local Flutter or Dart builds.
 
-`Run` reads its Android signing key only from GitHub Actions Secrets; never commit a keystore or `android/key.properties`.
+### Release build and publishing
+
+- `Run` must run `flutter pub get`, analysis, tests, release APK build, and `apksigner` verification before publishing.
+- `Run` reads its Android signing key only from GitHub Actions Secrets: `LUMO_KEYSTORE_BASE64`, `LUMO_KEY_ALIAS`, `LUMO_KEY_PASSWORD`, and `LUMO_STORE_PASSWORD`.
+- Never commit a keystore, `android/key.properties`, secret value, or private signing credential. Keep the generated keystore in an offline backup; replacing it prevents installed users from receiving normal app updates.
+- Every successful `Run` publishes the verified APK as an Actions artifact named `lumo-release-apk` and as a public GitHub Release asset.
+- Release tags use `v<pubspec semantic version>-build.<GitHub run number>` to make every package unique. Bump `pubspec.yaml` `version` for a new app version; never reuse an existing release tag for a different build.
+- `Debug` remains unsigned by the release key and publishes only the `lumo-debug-apk` artifact; it must not create a GitHub Release.
+- Keep repository visibility public without exposing any secret in source, logs, workflow output, issues, or releases.
 
 ## Implementation principles
 
