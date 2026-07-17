@@ -21,6 +21,7 @@ void main() {
     expect(find.text('今天有一点累'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump();
     expect(find.textContaining('最明显的感受'), findsOneWidget);
   });
 }
