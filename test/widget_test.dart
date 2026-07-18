@@ -137,7 +137,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: LumoSplash(ready: true, onFinished: () => finished = true)),
     );
-    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pumpAndSettle();
     expect(finished, isTrue);
   });
 }
