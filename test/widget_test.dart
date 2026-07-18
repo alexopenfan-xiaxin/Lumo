@@ -94,7 +94,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
-    expect(Theme.of(tester.element(find.text('游客用户'))).brightness, Brightness.dark);
+    expect(find.text('浅色模式'), findsOneWidget);
+    expect(Theme.of(tester.element(find.text('浅色模式'))).brightness, Brightness.dark);
 
     await tester.scrollUntilVisible(find.byKey(const ValueKey('profile-settings')), -180);
     await tester.tap(find.byKey(const ValueKey('profile-settings')));
