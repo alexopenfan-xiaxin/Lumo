@@ -114,15 +114,20 @@ const register = async (request, env) => {
   return json(await createSession(env, {id, username, is_member: 0, role: 'user'}));
 };
 
+export const validInviteCount = (count) => Number.isInteger(count) && count >= 1 && count <= 100;
+
 const invites = async (request, env, account) => {
   if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
   if (request.method === 'GET') {
     const result = await env.DB.prepare('SELECT code, created_at, used_at FROM invites ORDER BY created_at DESC LIMIT 50').all();
     return json({invites: result.results});
   }
-  const code = `LUMO-${randomHex(2).toUpperCase()}-${randomHex(2).toUpperCase()}`;
-  await env.DB.prepare('INSERT INTO invites (code, created_by, created_at) VALUES (?, ?, ?)').bind(code, account.id, Date.now()).run();
-  return json({code});
+  const body = await readBody(request);
+  const count = body?.count ?? 1;
+  if (!validInviteCount(count)) return json({error: '每次可生成 1–100 枚邀请码。'}, 400);
+  const codes = Array.from({length: count}, () => `LUMO-${randomHex(2).toUpperCase()}-${randomHex(2).toUpperCase()}`);
+  await env.DB.batch(codes.map((code) => env.DB.prepare('INSERT INTO invites (code, created_by, created_at) VALUES (?, ?, ?)').bind(code, account.id, Date.now())));
+  return json({codes});
 };
 
 export const quotaPolicy = (account) => account?.is_member === 1 ? null : {limit: account ? 100 : 10, period: account ? 'daily' : 'lifetime'};

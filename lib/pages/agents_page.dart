@@ -46,11 +46,10 @@ class AgentsPage extends StatelessWidget {
                             Text(companions[index].name, style: Theme.of(context).textTheme.titleLarge),
                             const SizedBox(height: 4),
                             Text(companions[index].tagline, style: Theme.of(context).textTheme.bodyMedium),
-                            const SizedBox(height: 10),
-                            Text(
-                              companions[index].isAvailable ? '随时回来继续聊聊' : '该智能体暂未开放，敬请期待',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
+                            if (!companions[index].isAvailable) ...[
+                              const SizedBox(height: 10),
+                              Text('该智能体暂未开放，敬请期待', style: Theme.of(context).textTheme.bodySmall),
+                            ],
                           ],
                         ),
                       ),
