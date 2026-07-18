@@ -17,23 +17,43 @@ void main() {
     expect(isNewerRelease('1.2.9', 99, '1.3.0', 1), isFalse);
   });
 
-  test('passes release URLs as named platform channel arguments', () async {
+  test('passes download, progress, permission, and install channel arguments', () async {
     const channel = MethodChannel('app.lumo.companion/external_url');
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
-      return call.method == 'downloadApk' ? 'downloading' : null;
+      return switch (call.method) {
+        'canRequestPackageInstalls' => true,
+        'downloadApk' => 42,
+        'downloadStatus' => {'state': 'downloading', 'received': 50, 'total': 100, 'reason': null},
+        _ => null,
+      };
     });
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
 
     final url = Uri.parse('https://github.com/alexopenfan-xiaxin/Lumo/releases/download/v1.3.0-build.55/app-release.apk');
-    expect(await UpdateChecker().downloadAndInstall(url), 'downloading');
-    await UpdateChecker().openInBrowser(url);
+    final checker = UpdateChecker();
+    expect(await checker.canRequestPackageInstalls(), isTrue);
+    await checker.openInstallSettings();
+    final id = await checker.startDownload(url);
+    final status = await checker.downloadStatus(id);
+    expect(status.progress, 0.5);
+    expect(status.isComplete, isFalse);
+    await checker.installDownloadedApk(id);
 
-    expect(calls.map((call) => call.method), ['downloadApk', 'openUrl']);
+    expect(calls.map((call) => call.method), [
+      'canRequestPackageInstalls',
+      'openInstallSettings',
+      'downloadApk',
+      'downloadStatus',
+      'installDownloadedApk',
+    ]);
     expect(calls.map((call) => call.arguments), [
+      null,
+      null,
       {'url': url.toString()},
-      {'url': url.toString()},
+      {'id': 42},
+      {'id': 42},
     ]);
   });
 }

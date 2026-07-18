@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -224,21 +225,9 @@ class _ProfilePageState extends State<ProfilePage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后再说')),
             FilledButton(
-              onPressed: () async {
+              onPressed: () {
                 Navigator.pop(context);
-                try {
-                  final result = await UpdateChecker().downloadAndInstall(update.url);
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再到“关于 Lumo”中检查。' : '更新开始下载，完成后将打开安装器。')),
-                  );
-                } on PlatformException catch (error) {
-                  try {
-                    await UpdateChecker().openInBrowser(update.url);
-                    messenger.showSnackBar(const SnackBar(content: Text('系统下载服务不可用，已在浏览器中打开 APK 下载。')));
-                  } on PlatformException {
-                    messenger.showSnackBar(SnackBar(content: Text(error.message ?? '无法开始下载，请稍后再试。')));
-                  }
-                }
+                unawaited(_startUpdate(update));
               },
               child: const Text('去下载'),
             ),
@@ -253,6 +242,80 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('更新信息无效，请稍后再试。')));
     } on Exception {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('暂时无法检查更新，请稍后再试。')));
+    }
+  }
+
+  Future<void> _startUpdate(ReleaseUpdate update) async {
+    try {
+      if (!await _ensureInstallPermission() || !mounted) return;
+      await _downloadUpdate(update);
+    } on PlatformException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? '无法完成更新，请稍后再试。')));
+    }
+  }
+
+  Future<bool> _ensureInstallPermission() async {
+    final checker = UpdateChecker();
+    if (await checker.canRequestPackageInstalls()) return true;
+    if (!mounted) return false;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('安装权限'),
+        content: const Text('安装更新需要允许 Lumo 安装未知应用。开启后请重新检查更新。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('去设置')),
+        ],
+      ),
+    );
+    if (open == true) await checker.openInstallSettings();
+    return false;
+  }
+
+  Future<void> _downloadUpdate(ReleaseUpdate update) async {
+    final checker = UpdateChecker();
+    final progress = ValueNotifier<double?>(null);
+    var dialogOpen = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('下载更新'),
+            content: ValueListenableBuilder<double?>(
+              valueListenable: progress,
+              builder: (context, value, child) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(value: value),
+                  const SizedBox(height: 16),
+                  Text(value == null ? '正在准备下载…' : '${(value * 100).toStringAsFixed(0)}%'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    try {
+      final id = await checker.startDownload(update.url);
+      while (mounted) {
+        final status = await checker.downloadStatus(id);
+        progress.value = status.progress;
+        if (status.isFailed) throw PlatformException(code: 'download_failed', message: '更新下载失败（系统原因 ${status.reason ?? '未知'}）。');
+        if (status.isComplete) break;
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+      }
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      dialogOpen = false;
+      await checker.installDownloadedApk(id);
+    } finally {
+      if (dialogOpen && mounted) Navigator.of(context, rootNavigator: true).pop();
+      progress.dispose();
     }
   }
 

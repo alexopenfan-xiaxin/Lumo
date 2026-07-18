@@ -13,6 +13,26 @@ class ReleaseUpdate {
   final Uri url;
 }
 
+class UpdateDownloadStatus {
+  const UpdateDownloadStatus({required this.state, required this.received, required this.total, this.reason});
+
+  final String state;
+  final int received;
+  final int total;
+  final int? reason;
+
+  bool get isComplete => state == 'success';
+  bool get isFailed => state == 'failed';
+  double? get progress => total > 0 ? (received / total).clamp(0, 1).toDouble() : null;
+
+  factory UpdateDownloadStatus.fromMap(Map<Object?, Object?> map) => UpdateDownloadStatus(
+        state: map['state']! as String,
+        received: map['received']! as int,
+        total: map['total']! as int,
+        reason: map['reason'] as int?,
+      );
+}
+
 class UpdateChecker {
   static const _latestRelease = 'https://api.github.com/repos/alexopenfan-xiaxin/Lumo/releases/latest';
   static const _channel = MethodChannel('app.lumo.companion/external_url');
@@ -46,9 +66,19 @@ class UpdateChecker {
     }
   }
 
-  Future<String> downloadAndInstall(Uri url) async => await _channel.invokeMethod<String>('downloadApk', {'url': url.toString()}) ?? 'failed';
+  Future<bool> canRequestPackageInstalls() async => await _channel.invokeMethod<bool>('canRequestPackageInstalls') ?? false;
 
-  Future<void> openInBrowser(Uri url) => _channel.invokeMethod<void>('openUrl', {'url': url.toString()});
+  Future<void> openInstallSettings() => _channel.invokeMethod<void>('openInstallSettings');
+
+  Future<int> startDownload(Uri url) async => await _channel.invokeMethod<int>('downloadApk', {'url': url.toString()}) ?? (throw PlatformException(code: 'download_failed'));
+
+  Future<UpdateDownloadStatus> downloadStatus(int id) async {
+    final status = await _channel.invokeMapMethod<Object?, Object?>('downloadStatus', {'id': id});
+    if (status == null) throw PlatformException(code: 'download_missing', message: '无法读取更新下载状态。');
+    return UpdateDownloadStatus.fromMap(status);
+  }
+
+  Future<void> installDownloadedApk(int id) => _channel.invokeMethod<void>('installDownloadedApk', {'id': id});
 }
 
 int compareVersions(String left, String right) {

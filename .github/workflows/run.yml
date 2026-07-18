@@ -51,7 +51,7 @@ jobs:
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" "$apk" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${version} (build ${GITHUB_RUN_NUMBER})" --notes $'新增精简个人中心，原设置功能收入二级设置页；同步焕新首页公告、智能体会话列表、双列探索和聊天组件，并统一深色模式与无障碍层级。\n\n此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。'
+            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${version} (build ${GITHUB_RUN_NUMBER})" --notes $'修复应用内更新：下载期间现在会显示实时进度，完成后主动打开系统安装器，不再依赖容易丢失的下载完成广播。\n\n此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。'
           fi
       - uses: actions/upload-artifact@v4
         with:
