@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
-const {quotaPolicy, validAgent, validInviteCount, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {quotaPolicy, validAgent, validImageUpload, validInviteCount, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
 assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
@@ -22,3 +22,6 @@ assert.equal(validAgent({...agent, avatarUrl: 'http://unsafe.example/avatar.jpg'
 assert.equal(validAgent({...agent, color: 'purple'}), false);
 assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/meow.jpg'}).avatarUrl, '');
 assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://example.com/new.jpg'}).avatarUrl, 'https://example.com/new.jpg');
+assert.equal(validImageUpload({type: 'image/webp', size: 1_000_000}), true);
+assert.equal(validImageUpload({type: 'image/gif', size: 100}), false);
+assert.equal(validImageUpload({type: 'image/png', size: 1_000_001}), false);

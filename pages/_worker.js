@@ -351,10 +351,37 @@ const manageAgents = async (request, env, account, id) => {
   if (request.method === 'DELETE') {
     const builtIn = defaultAgents.find((agent) => agent.id === id);
     if (builtIn) await saveAgent(env, {...builtIn, enabled: false});
-    else await env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id).run();
+    else await env.DB.batch([
+      env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id),
+      env.DB.prepare('DELETE FROM agent_images WHERE agent_id = ?').bind(id),
+    ]);
     return json({deleted: true});
   }
   return json({error: 'Not found'}, 404);
+};
+
+export const validImageUpload = (file) => file &&
+  ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) &&
+  Number.isInteger(file.size) && file.size > 0 && file.size <= 1_000_000;
+
+const uploadAgentImage = async (request, env, account, id) => {
+  if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
+  const form = await request.formData().catch(() => null);
+  const file = form?.get('image');
+  if (!validImageUpload(file)) return json({error: '请上传 1 MB 以内的 JPEG、PNG 或 WebP 图片。'}, 400);
+  const updatedAt = Date.now();
+  await env.DB.prepare(
+    'INSERT INTO agent_images (agent_id, content_type, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(agent_id) DO UPDATE SET content_type=excluded.content_type, data=excluded.data, updated_at=excluded.updated_at',
+  ).bind(id, file.type, await file.arrayBuffer(), updatedAt).run();
+  return json({url: `${new URL(request.url).origin}/agent-images/${id}?v=${updatedAt}`});
+};
+
+const serveAgentImage = async (env, id) => {
+  const image = await env.DB.prepare('SELECT content_type, data FROM agent_images WHERE agent_id = ?').bind(id).first();
+  if (!image) return json({error: 'Not found'}, 404);
+  return new Response(new Uint8Array(image.data), {
+    headers: {'Content-Type': image.content_type, 'Cache-Control': 'public, max-age=31536000, immutable'},
+  });
 };
 
 export const quotaPolicy = (account) => account?.is_member === 1 ? null : {limit: account ? 100 : 10, period: account ? 'daily' : 'lifetime'};
@@ -433,6 +460,8 @@ export default {
     const url = new URL(request.url);
     const avatarMatch = request.method === 'GET' && url.pathname.match(/^\/avatars\/([a-z0-9_-]+)\.jpg$/);
     if (avatarMatch) return serveAvatar(request, avatarMatch[1]);
+    const imageMatch = url.pathname.match(/^\/agent-images\/([a-z0-9_-]{2,32})$/);
+    if (request.method === 'GET' && imageMatch) return serveAgentImage(env, imageMatch[1]);
     if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);
@@ -443,6 +472,8 @@ export default {
       if (request.method !== 'GET' && !agentMatch[1]) return json({error: '缺少智能体 ID。'}, 400);
       return manageAgents(request, env, await authenticate(request, env), agentMatch[1]);
     }
+    const imageUploadMatch = request.method === 'POST' && url.pathname.match(/^\/admin\/agent-images\/([a-z0-9_-]{2,32})$/);
+    if (imageUploadMatch) return uploadAgentImage(request, env, await authenticate(request, env), imageUploadMatch[1]);
     if (request.method === 'GET' && url.pathname !== '/chat') return env.ASSETS.fetch(request);
     if (request.method !== 'POST' || url.pathname !== '/chat') return json({error: 'Not found'}, 404);
     if (!env.SENSENOVA_API_TOKEN) return json({error: 'AI service is not configured'}, 503);

@@ -78,6 +78,7 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - System-level preferences such as personality and topic must be persisted once, supplied to every enabled agent request, and applied as soft style guidance rather than replacing the agent’s fixed persona or safety contract.
 - Before enabling an agent in the UI, verify its public Pages endpoint, primary response, rate-limit fallback, empty/error behavior, persistence path, accessibility labels, and signed Release build. Unavailable agents must not appear in discovery or selection interfaces.
 - Manage agent metadata, enabled state, ordering, and server-only prompts through the authenticated Pages admin console and D1 `agents` overrides. Keep `/agents` responses prompt-free; avatar URLs must use HTTPS and must not require R2.
+- Store admin-uploaded avatars in D1 `agent_images`, keyed by agent ID and served from versioned `/agent-images/<id>` URLs. Accept only JPEG, PNG, or WebP up to 1 MB so rows stay safely below D1's 2 MB BLOB limit.
 
 ## Continuous improvement
 
