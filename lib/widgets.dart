@@ -79,7 +79,7 @@ class CompanionAvatar extends StatelessWidget {
                         fit: BoxFit.cover,
                         alignment: const Alignment(0, -0.2),
                         excludeFromSemantics: true,
-                        errorBuilder: (_, _, _) => _AvatarGlyph(companion: companion, size: size),
+                        errorBuilder: (context, error, stackTrace) => _AvatarGlyph(companion: companion, size: size),
                       ),
                     )
                   : _AvatarGlyph(companion: companion, size: size),
