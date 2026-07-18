@@ -4,7 +4,9 @@
 
 ## Direction
 
-Lumo is an emotional-companion app for quiet daily use. Its signature is a soft luminous orbit: one restrained halo appears around avatars, meaningful status, and shared-element transitions. The original warm, editorial character is retained; generic AI purple, heavy glassmorphism, and decorative motion are intentionally rejected.
+Lumo is an emotional-companion app for quiet daily use. Its signature is a soft luminous orbit around people and meaningful status. The interface follows the spacious, content-first structure common in Chinese community apps: warm paper backgrounds, white grouped surfaces, weak dividers, black line icons, and clear Chinese hierarchy. Generic AI purple, visible Material 3 styling, heavy glassmorphism, and decorative motion are intentionally rejected.
+
+Visual references are stored in `references/domestic-profile-reference.jpg` and `references/domestic-settings-reference.jpg`. Reuse their information hierarchy and grouping, never their unrelated social, wallet, creator, or regulatory content.
 
 ## Tokens
 
@@ -25,8 +27,16 @@ Lumo is an emotional-companion app for quiet daily use. Its signature is a soft 
 - Display: ZCOOL XiaoWei, 24–32sp, short Chinese headings only.
 - Body: Android system sans, 14–16sp, line height 1.45–1.65.
 - Spacing: 4 / 8 / 12 / 16 / 20 / 24 / 32.
-- Corners: 12 for controls, 18 for cards, 24 for hero surfaces, full circles for avatars.
-- Elevation: borders first; only primary CTA, hero, and modal may cast a soft shadow.
+- Corners: 16 for controls and cover art, 24 for grouped surfaces and hero areas, full circles for avatars.
+- Elevation: grouped surfaces stay flat; only the floating dock and modal may cast a soft shadow.
+
+## Components
+
+- Primary pages use 16–20dp horizontal gutters and generous top whitespace. Display type is reserved for brands, page titles, and companion names.
+- Functional lists sit inside one white 24dp group with 64dp rows and 1px inset dividers. Ordinary controls do not use colored square icon tiles.
+- The fourth primary destination is `个人`; its settings button opens a secondary centered-title settings page.
+- The floating four-item dock remains, but selected state uses filled icon, brand-colored label, and weight only—never a sliding tonal pill.
+- Discovery uses two-column 3:4 companion covers with text directly below the image and no outer card.
 
 ## Motion
 

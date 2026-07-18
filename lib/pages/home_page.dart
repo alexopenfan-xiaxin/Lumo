@@ -40,11 +40,10 @@ class _HomePageState extends State<HomePage> {
                 LumoPageTitle(
                   title: 'Lumo',
                   subtitle: '下午好，愿你在这里慢下来',
-                  eyebrow: 'YOUR QUIET ORBIT',
                   trailing: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      IconButton.filledTonal(
+                      IconButton(
                         tooltip: '消息通知',
                         onPressed: () {
                           setState(() => _hasUnread = false);
@@ -77,24 +76,28 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 22),
-                _WelcomeHero(onTap: () => _showNotice(notices.single))
+                const SizedBox(height: 28),
+                const _WelcomeHero()
                     .animate()
                     .fadeIn(duration: duration)
                     .slideY(begin: 0.04, end: 0, duration: duration),
                 const SizedBox(height: 28),
                 const LumoSectionHeader(title: '公告', caption: '保持知情，也保留安静'),
                 const SizedBox(height: 12),
-                for (var i = 0; i < notices.length; i++) ...[
-                  _NoticeCard(
-                    notice: notices[i],
-                    onTap: () => _showNotice(notices[i]),
-                  )
-                      .animate()
-                      .fadeIn(delay: reduceMotion ? Duration.zero : (60 * i).ms, duration: duration)
-                      .slideY(begin: 0.04, end: 0, duration: duration),
-                  if (i != notices.length - 1) const SizedBox(height: 12),
-                ],
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < notices.length; i++) ...[
+                        _NoticeCard(notice: notices[i], onTap: () => _showNotice(notices[i])),
+                        if (i != notices.length - 1) const Divider(height: 1, indent: 20, endIndent: 20),
+                      ],
+                    ],
+                  ),
+                )
+                    .animate()
+                    .fadeIn(delay: reduceMotion ? Duration.zero : 60.ms, duration: duration)
+                    .slideY(begin: 0.03, end: 0, duration: duration),
               ],
             ),
           ),
@@ -105,20 +108,15 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _WelcomeHero extends StatelessWidget {
-  const _WelcomeHero({required this.onTap});
-
-  final VoidCallback onTap;
+  const _WelcomeHero();
 
   @override
   Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: '打开 Lumo 更新公告',
-    child: Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
+        image: true,
+        label: 'Lumo 的陪伴者们',
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: SizedBox(
           height: 210,
           child: Stack(
             fit: StackFit.expand,
@@ -128,7 +126,7 @@ class _WelcomeHero extends StatelessWidget {
                 fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.1),
                 cacheWidth: 1200,
-              semanticLabel: 'Lumo 的晨光插画',
+                excludeFromSemantics: true,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(
@@ -144,7 +142,7 @@ class _WelcomeHero extends StatelessWidget {
                 left: 20,
                 top: 18,
                 child: LumoStatusPill(
-                  label: 'LUMO JOURNAL',
+                  label: 'LUMO',
                   color: Colors.white,
                   icon: Icons.auto_awesome_rounded,
                 ),
@@ -161,7 +159,7 @@ class _WelcomeHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Lumo 1.3.0 更新',
+                            '欢迎回到你的微光轨道',
                             style: TextStyle(
                               color: Colors.white,
                               fontFamily: 'LumoDisplay',
@@ -170,7 +168,7 @@ class _WelcomeHero extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '更轻盈的导航与安装包',
+                            '公告、陪伴与新的相遇，都从这里开始',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white.withValues(alpha: 0.88),
                             ),
@@ -178,16 +176,14 @@ class _WelcomeHero extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_rounded, color: Colors.white),
                   ],
                 ),
               ),
             ],
           ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _NoticeCard extends StatelessWidget {
@@ -197,17 +193,15 @@ class _NoticeCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-              LumoIconTile(icon: notice.icon, color: notice.color),
-            const SizedBox(width: 14),
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(notice.icon, color: Theme.of(context).colorScheme.onSurface, size: 24),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,11 +220,10 @@ class _NoticeCard extends StatelessWidget {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _NoticeSheet extends StatelessWidget {
@@ -240,35 +233,35 @@ class _NoticeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: notice.color.withValues(alpha: 0.15),
-            child: Icon(notice.icon, color: notice.color),
-          ),
-          const SizedBox(height: 18),
-          Text(notice.title, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text('${notice.tag} · ${notice.time}', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 18),
-          Text(notice.detail, style: Theme.of(context).textTheme.bodyLarge),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('知道了'),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: notice.color.withValues(alpha: 0.15),
+                  child: Icon(notice.icon, color: notice.color),
+                ),
+                const SizedBox(height: 18),
+                Text(notice.title, style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 8),
+                Text('${notice.tag} · ${notice.time}', style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 18),
+                Text(notice.detail, style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('知道了'),
+                  ),
+                ),
+              ],
             ),
           ),
-          ],
         ),
-      ),
-    ),
-  );
+      );
 }

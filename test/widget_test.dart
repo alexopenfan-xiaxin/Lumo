@@ -31,17 +31,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('认识这里的陪伴者'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('dock-设置')));
+    await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
-    expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
+    expect(find.text('游客用户'), findsOneWidget);
+    expect(find.text('陪伴偏好'), findsOneWidget);
 
     await tester.tap(homeDock);
     await tester.pumpAndSettle();
     final gesture = await tester.startGesture(tester.getCenter(homeDock));
-    await gesture.moveTo(tester.getCenter(find.byKey(const ValueKey('dock-设置'))));
+    await gesture.moveTo(tester.getCenter(find.byKey(const ValueKey('dock-个人'))));
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
+    expect(find.text('游客用户'), findsOneWidget);
     semantics.dispose();
   });
 
@@ -86,12 +87,20 @@ void main() {
     });
 
     await tester.pumpWidget(const LumoApp(showSplash: false));
-    await tester.tap(find.byKey(const ValueKey('dock-设置')));
+    await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('深色模式'), 200);
+    await tester.scrollUntilVisible(find.text('深色模式'), 160);
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
-    expect(Theme.of(tester.element(find.text('设置'))).brightness, Brightness.dark);
+    expect(Theme.of(tester.element(find.text('游客用户'))).brightness, Brightness.dark);
+
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('profile-settings')), -180);
+    await tester.tap(find.byKey(const ValueKey('profile-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('账号与隐私'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('当前版本：1.3.0'), 200);
+    expect(find.text('当前版本：1.3.0'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(

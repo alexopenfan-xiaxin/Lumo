@@ -235,22 +235,3 @@ class LumoStatusPill extends StatelessWidget {
     ),
   );
 }
-
-class LumoIconTile extends StatelessWidget {
-  const LumoIconTile({required this.icon, this.color, super.key});
-
-  final IconData icon;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final iconColor = color ?? Theme.of(context).colorScheme.primary;
-    return SizedBox.square(
-      dimension: 40,
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-        child: Icon(icon, color: iconColor, size: 21),
-      ),
-    );
-  }
-}

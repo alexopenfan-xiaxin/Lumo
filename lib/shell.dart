@@ -56,7 +56,7 @@ class _LumoShellState extends State<LumoShell> {
     _DockDestination(label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
     _DockDestination(label: '智能体', icon: Icons.people_outline_rounded, selectedIcon: Icons.people_rounded),
     _DockDestination(label: '探索', icon: Icons.explore_outlined, selectedIcon: Icons.explore_rounded),
-    _DockDestination(label: '设置', icon: Icons.tune_outlined, selectedIcon: Icons.tune_rounded),
+    _DockDestination(label: '个人', icon: Icons.person_outline_rounded, selectedIcon: Icons.person_rounded),
   ];
 
   void _select(int index) {
@@ -80,7 +80,7 @@ class _LumoShellState extends State<LumoShell> {
           const HomePage(),
           AgentsPage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
           ExplorePage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
-          SettingsPage(
+          ProfilePage(
             themeMode: widget.themeMode,
             onThemeModeChanged: widget.onThemeModeChanged,
           ),
@@ -147,38 +147,18 @@ class _FloatingDock extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border.all(color: theme.dividerColor),
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8))],
               ),
-              child: Stack(
+              child: Row(
                 children: [
-                  AnimatedAlign(
-                    duration: duration,
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment(-1 + (2 * selectedIndex / (destinations.length - 1)), 0),
-                    child: SizedBox(
-                      width: constraints.maxWidth / destinations.length,
-                      height: 54,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
-                        ),
+                  for (var index = 0; index < destinations.length; index++)
+                    Expanded(
+                      child: _DockItem(
+                        destination: destinations[index],
+                        selected: index == selectedIndex,
+                        duration: duration,
+                        onTap: () => onSelected(index),
                       ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      for (var index = 0; index < destinations.length; index++)
-                        Expanded(
-                          child: _DockItem(
-                            destination: destinations[index],
-                            selected: index == selectedIndex,
-                            duration: duration,
-                            onTap: () => onSelected(index),
-                          ),
-                        ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -216,7 +196,11 @@ class _DockItem extends StatelessWidget {
             AnimatedDefaultTextStyle(
               duration: duration,
               curve: Curves.easeOutCubic,
-              style: theme.textTheme.labelLarge!.copyWith(color: color, fontSize: 11),
+              style: theme.textTheme.labelLarge!.copyWith(
+                color: color,
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
               child: ExcludeSemantics(child: Text(destination.label)),
             ),
           ],

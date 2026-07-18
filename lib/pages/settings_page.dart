@@ -9,17 +9,17 @@ import '../chat_store.dart';
 import '../update_checker.dart';
 import '../widgets.dart';
 
-class SettingsPage extends StatefulWidget {
-  const SettingsPage({required this.themeMode, required this.onThemeModeChanged, super.key});
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({required this.themeMode, required this.onThemeModeChanged, super.key});
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _ProfilePageState extends State<ProfilePage> {
   final _store = ChatStore();
   late final _authClient = AuthClient(store: _store);
   AccountSession? _account;
@@ -67,7 +67,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     final register = await showModalBottomSheet<bool>(
       context: context,
-      showDragHandle: true,
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -188,7 +187,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _showLicenses() => showModalBottomSheet<void>(
         context: context,
-        showDragHandle: true,
         builder: (context) => SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
@@ -260,7 +258,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _showAbout() => showModalBottomSheet<void>(
         context: context,
-        showDragHandle: true,
         builder: (sheetContext) => SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -290,162 +287,360 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
 
+  Future<void> _showPreferences() async {
+    final selection = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('陪伴偏好', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              _SettingsGroup(
+                children: [
+                  _SettingsRow(title: '陪伴性格', value: _preferences.personality, onTap: () => Navigator.pop(context, true)),
+                  _SettingsRow(title: '对话主题', value: _preferences.topic, onTap: () => Navigator.pop(context, false)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selection == null || !mounted) return;
+    await _selectPreference(
+      title: selection ? '选择全局陪伴性格' : '选择全局对话主题',
+      values: selection ? const ['温柔倾听', '理性分析', '轻松鼓励'] : const ['日常放松', '情绪梳理', '自我成长'],
+      isPersonality: selection,
+    );
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsDetailPage(
+          account: () => _account,
+          personality: () => _preferences.personality,
+          topic: () => _preferences.topic,
+          onAccount: _showAccount,
+          onPersonality: () => _selectPreference(
+            title: '选择全局陪伴性格',
+            values: const ['温柔倾听', '理性分析', '轻松鼓励'],
+            isPersonality: true,
+          ),
+          onTopic: () => _selectPreference(
+            title: '选择全局对话主题',
+            values: const ['日常放松', '情绪梳理', '自我成长'],
+            isPersonality: false,
+          ),
+          onPrivacy: _showPrivacy,
+          onLicenses: _showLicenses,
+          onAbout: _showAbout,
+          onThemeChanged: widget.onThemeModeChanged,
+        ),
+      ),
+    );
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
     return SafeArea(
       child: ListView(
-        key: const PageStorageKey('settings-scroll'),
-        padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
+        key: const PageStorageKey('profile-scroll'),
+        padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 32),
         children: [
-          const LumoPageTitle(title: '设置', subtitle: '让陪伴更贴近你的习惯', eyebrow: 'PERSONAL SPACE'),
-          const SizedBox(height: 24),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: _showAccount,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
-                      Theme.of(context).colorScheme.surface,
-                    ],
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        child: Text(_account?.username.substring(0, 1).toUpperCase() ?? '游', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_account?.username ?? '游客用户', style: Theme.of(context).textTheme.titleLarge),
-                            const SizedBox(height: 4),
-                            Text(
-                              _account == null ? '可体验 10 条消息' : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.arrow_forward_rounded, color: Theme.of(context).colorScheme.primary),
-                    ],
-                  ),
-                ),
-              ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              key: const ValueKey('profile-settings'),
+              tooltip: '设置',
+              onPressed: _openSettings,
+              icon: const Icon(Icons.settings_outlined),
             ),
           ),
           const SizedBox(height: 24),
-          const LumoSectionHeader(title: '陪伴偏好', caption: '应用于所有智能体'),
-          const SizedBox(height: 10),
-          _SettingsCard(
+          Row(
             children: [
-              _SettingsTile(
-                icon: Icons.favorite_outline_rounded,
-                title: '陪伴性格',
-                value: _preferences.personality,
-                onTap: () => _selectPreference(title: '选择全局陪伴性格', values: const ['温柔倾听', '理性分析', '轻松鼓励'], isPersonality: true),
+              CircleAvatar(
+                radius: 44,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: Text(
+                  _account?.username.substring(0, 1).toUpperCase() ?? '游',
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700),
+                ),
               ),
-              _SettingsTile(
-                icon: Icons.chat_bubble_outline_rounded,
-                title: '对话主题',
-                value: _preferences.topic,
-                onTap: () => _selectPreference(title: '选择全局对话主题', values: const ['日常放松', '情绪梳理', '自我成长'], isPersonality: false),
-              ),
-              const _SettingsTile(icon: Icons.translate_rounded, title: '陪伴语言', value: '中文'),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const LumoSectionHeader(title: '隐私与支持'),
-          const SizedBox(height: 10),
-          _SettingsCard(
-            children: [
-              _SettingsTile(icon: Icons.policy_outlined, title: '隐私说明', onTap: _showPrivacy),
-              _SettingsTile(icon: Icons.gavel_outlined, title: '开源许可', onTap: _showLicenses),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const LumoSectionHeader(title: '应用'),
-          const SizedBox(height: 10),
-          _SettingsCard(
-            children: [
-              SwitchListTile(
-                secondary: const LumoIconTile(icon: Icons.dark_mode_outlined),
-                title: const Text('深色模式'),
-                value: widget.themeMode == ThemeMode.dark,
-                onChanged: (enabled) {
-                  HapticFeedback.selectionClick();
-                  widget.onThemeModeChanged(enabled ? ThemeMode.dark : ThemeMode.light);
-                },
-              ),
-              _SettingsTile(
-                icon: Icons.info_outline_rounded,
-                title: '关于 Lumo',
-                value: appVersionLabel,
-                onTap: _showAbout,
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _account?.username ?? '游客用户',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _account == null ? '可体验 10 条消息' : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Expanded(child: _ProfileButton(label: _account == null ? '登录 / 注册' : '账号信息', onTap: _showAccount)),
+              const SizedBox(width: 12),
+              Expanded(child: _ProfileButton(label: '陪伴偏好', onTap: _showPreferences)),
+            ],
+          ),
+          const SizedBox(height: 30),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileShortcut(
+                  icon: widget.themeMode == ThemeMode.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  label: widget.themeMode == ThemeMode.dark ? '浅色模式' : '深色模式',
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    widget.onThemeModeChanged(widget.themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
+                  },
+                ),
+              ),
+              Expanded(child: _ProfileShortcut(icon: Icons.shield_outlined, label: '隐私说明', onTap: _showPrivacy)),
+              Expanded(child: _ProfileShortcut(icon: Icons.system_update_outlined, label: '检查更新', onTap: _checkForUpdate)),
+              Expanded(child: _ProfileShortcut(icon: Icons.info_outline_rounded, label: '关于 Lumo', onTap: _showAbout)),
+            ],
+          ),
+          const SizedBox(height: 72),
+          const Center(child: LumoMark(size: 48)),
+          const SizedBox(height: 14),
+          Text('愿每一次陪伴都由你掌控', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
   }
 }
 
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.children});
+class _ProfileButton extends StatelessWidget {
+  const _ProfileButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: SizedBox(height: 56, child: Center(child: Text(label, style: Theme.of(context).textTheme.titleMedium))),
+        ),
+      );
+}
+
+class _ProfileShortcut extends StatelessWidget {
+  const _ProfileShortcut({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkResponse(
+        radius: 32,
+        onTap: onTap,
+        child: Semantics(
+          button: true,
+          label: label,
+          child: SizedBox(
+            height: 78,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 25),
+                const SizedBox(height: 8),
+                ExcludeSemantics(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _SettingsDetailPage extends StatefulWidget {
+  const _SettingsDetailPage({
+    required this.account,
+    required this.personality,
+    required this.topic,
+    required this.onAccount,
+    required this.onPersonality,
+    required this.onTopic,
+    required this.onPrivacy,
+    required this.onLicenses,
+    required this.onAbout,
+    required this.onThemeChanged,
+  });
+
+  final AccountSession? Function() account;
+  final String Function() personality;
+  final String Function() topic;
+  final Future<void> Function() onAccount;
+  final Future<void> Function() onPersonality;
+  final Future<void> Function() onTopic;
+  final Future<void> Function() onPrivacy;
+  final Future<void> Function() onLicenses;
+  final Future<void> Function() onAbout;
+  final ValueChanged<ThemeMode> onThemeChanged;
+
+  @override
+  State<_SettingsDetailPage> createState() => _SettingsDetailPageState();
+}
+
+class _SettingsDetailPageState extends State<_SettingsDetailPage> {
+  Future<void> _run(Future<void> Function() action) async {
+    await action();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final horizontalPadding = lumoHorizontalPadding(context);
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: Text('设置', style: Theme.of(context).textTheme.titleLarge),
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 32),
+          children: [
+            const _SettingsLabel('陪伴'),
+            _SettingsGroup(
+              children: [
+                _SettingsRow(title: '陪伴性格', value: widget.personality(), onTap: () => _run(widget.onPersonality)),
+                _SettingsRow(title: '对话主题', value: widget.topic(), onTap: () => _run(widget.onTopic)),
+                const _SettingsRow(title: '陪伴语言', value: '中文'),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const _SettingsLabel('账号与隐私'),
+            _SettingsGroup(
+              children: [
+                _SettingsRow(title: '账号设置', value: widget.account()?.username ?? '游客', onTap: () => _run(widget.onAccount)),
+                _SettingsRow(title: '隐私说明', onTap: () => _run(widget.onPrivacy)),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const _SettingsLabel('应用'),
+            _SettingsGroup(
+              children: [
+                _SettingsRow(
+                  title: '深色模式',
+                  trailing: Switch(
+                    value: Theme.of(context).brightness == Brightness.dark,
+                    onChanged: (enabled) {
+                      HapticFeedback.selectionClick();
+                      widget.onThemeChanged(enabled ? ThemeMode.dark : ThemeMode.light);
+                    },
+                  ),
+                ),
+                _SettingsRow(title: '开源许可', onTap: () => _run(widget.onLicenses)),
+                _SettingsRow(title: '关于 Lumo', value: appVersionLabel, onTap: () => _run(widget.onAbout)),
+              ],
+            ),
+            if (widget.account() != null) ...[
+              const SizedBox(height: 22),
+              _SettingsGroup(children: [_SettingsRow(title: '退出登录', onTap: () => _run(widget.onAccount))]),
+            ],
+            const SizedBox(height: 42),
+            Text('当前版本：$appVersionLabel', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Text('© 2026 Lumo contributors', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsLabel extends StatelessWidget {
+  const _SettingsLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+      );
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.children});
 
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            for (var i = 0; i < children.length; i++) ...[
-              children[i],
-              if (i != children.length - 1) Divider(height: 1, indent: 72, endIndent: 16, color: Theme.of(context).dividerColor),
+            for (var index = 0; index < children.length; index++) ...[
+              children[index],
+              if (index != children.length - 1)
+                Divider(height: 1, indent: 20, endIndent: 20, color: Theme.of(context).dividerColor),
             ],
           ],
         ),
       );
 }
 
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({required this.icon, required this.title, this.value, this.onTap});
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({required this.title, this.value, this.onTap, this.trailing});
 
-  final IconData icon;
   final String title;
   final String? value;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => ListTile(
         minTileHeight: 64,
-        leading: LumoIconTile(icon: icon),
-        title: Text(title),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (value != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 120),
-                child: Text(value!, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-              ),
-            if (onTap != null) const SizedBox(width: 4),
-            if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 20),
-          ],
-        ),
+        title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+        trailing: trailing ??
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (value != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 128),
+                    child: Text(value!, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                if (onTap != null) const SizedBox(width: 6),
+                if (onTap != null) Icon(Icons.chevron_right_rounded, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ],
+            ),
         onTap: onTap,
       );
 }

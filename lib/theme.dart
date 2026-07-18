@@ -29,6 +29,8 @@ ThemeData buildLumoTheme(Brightness brightness) {
     secondary: isDark ? const Color(0xFF8DB0A6) : LumoColors.eucalyptus,
     tertiary: isDark ? const Color(0xFF9AB6C7) : LumoColors.fogBlue,
     surface: isDark ? LumoColors.darkPaper : LumoColors.paper,
+    surfaceContainerHighest: isDark ? LumoColors.darkRaised : const Color(0xFFF2EFEC),
+    onSurfaceVariant: isDark ? const Color(0xFFBDB3AA) : LumoColors.muted,
     error: isDark ? const Color(0xFFE68A80) : const Color(0xFFBB6258),
   );
   final foreground = isDark ? const Color(0xFFF4ECE4) : LumoColors.ink;
@@ -80,8 +82,7 @@ ThemeData buildLumoTheme(Brightness brightness) {
       margin: EdgeInsets.zero,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: border),
+        borderRadius: BorderRadius.circular(24),
       ),
     ),
     appBarTheme: AppBarTheme(
@@ -114,10 +115,9 @@ ThemeData buildLumoTheme(Brightness brightness) {
     ),
     iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
     listTileTheme: ListTileThemeData(
-      minTileHeight: 60,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      iconColor: muted,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      minTileHeight: 64,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      iconColor: foreground,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -129,7 +129,7 @@ ThemeData buildLumoTheme(Brightness brightness) {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: border),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -153,7 +153,7 @@ ThemeData buildLumoTheme(Brightness brightness) {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
       modalBackgroundColor: scheme.surface,
-      showDragHandle: true,
+      showDragHandle: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),

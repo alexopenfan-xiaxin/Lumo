@@ -12,10 +12,11 @@ import '../speech_input.dart';
 import '../widgets.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({required this.companion, required this.heroTag, super.key});
+  const ChatPage({required this.companion, required this.heroTag, this.createNew = false, super.key});
 
   final Companion companion;
   final String heroTag;
+  final bool createNew;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -40,7 +41,7 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     if (widget.companion.isAvailable) {
       _store = ChatStore();
-      unawaited(_loadConversation());
+      unawaited(_loadConversation(createNew: widget.createNew));
     }
   }
 
@@ -244,7 +245,6 @@ class _ChatPageState extends State<ChatPage> {
     Future<List<Conversation>> sessions = _store.conversations(widget.companion.id);
     final selected = await showModalBottomSheet<Conversation>(
       context: context,
-      showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           child: FutureBuilder<List<Conversation>>(
@@ -313,7 +313,6 @@ class _ChatPageState extends State<ChatPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           child: FractionallySizedBox(
@@ -483,17 +482,26 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           CompanionAvatar(companion: widget.companion, size: 42, heroTag: widget.heroTag),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.companion.name, style: Theme.of(context).textTheme.titleMedium),
-              Text(
-                widget.companion.isAvailable ? '此刻在线 · 安静陪着你' : '暂未开放',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: widget.companion.isAvailable ? Theme.of(context).colorScheme.secondary : null,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.companion.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-              ),
-            ],
+                Text(
+                  widget.companion.isAvailable ? '此刻在线 · 安静陪着你' : '暂未开放',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: widget.companion.isAvailable ? Theme.of(context).colorScheme.secondary : null,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -538,7 +546,7 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Card(
                   child: ListTile(
-                    leading: const LumoIconTile(icon: Icons.psychology_outlined),
+                    leading: const Icon(Icons.psychology_outlined),
                     title: Text('${widget.companion.name}想记住 ${_pendingMemories.length} 件事'),
                     subtitle: const Text('确认后才会用于后续对话'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
@@ -551,9 +559,6 @@ class _ChatPageState extends State<ChatPage> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, -4)),
-              ],
             ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(horizontalPadding - 8, 10, horizontalPadding - 8, 12),
@@ -610,10 +615,16 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: '发送',
-                    onPressed: _isReplying || _isLoadingConversation || _inputController.text.trim().isEmpty ? null : _send,
-                    icon: const Icon(Icons.arrow_upward_rounded),
+                  Tooltip(
+                    message: '发送',
+                    child: SizedBox(
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _isReplying || _isLoadingConversation || _inputController.text.trim().isEmpty ? null : _send,
+                        style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16)),
+                        child: const Text('发送'),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -666,9 +677,6 @@ class _MessageBubble extends StatelessWidget {
           bottomRight: Radius.circular(message.fromUser ? 5 : 18),
         ),
         border: message.fromUser ? null : Border.all(color: Theme.of(context).dividerColor),
-        boxShadow: message.fromUser
-            ? null
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.025), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Text(
         message.text,
