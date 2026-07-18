@@ -69,7 +69,9 @@ class UpdateChecker {
   ) async {
     final directory = Directory(await updateDirectory());
     await directory.create(recursive: true);
-    final apk = File('${directory.path}${Platform.pathSeparator}lumo-update.apk');
+    final apk = File(
+      '${directory.path}${Platform.pathSeparator}lumo-update.apk',
+    );
     final partial = File('${apk.path}.part');
     if (await partial.exists()) await partial.delete();
 
@@ -108,10 +110,9 @@ class UpdateChecker {
       if (received == 0 || (total > 0 && received != total)) {
         throw const HttpException('更新包下载不完整');
       }
-      final signature = await partial.openRead(0, 4).fold<List<int>>(
-        <int>[],
-        (bytes, chunk) => bytes..addAll(chunk),
-      );
+      final signature = await partial
+          .openRead(0, 4)
+          .fold<List<int>>(<int>[], (bytes, chunk) => bytes..addAll(chunk));
       if (signature.length != 4 ||
           signature[0] != 0x50 ||
           signature[1] != 0x4b ||

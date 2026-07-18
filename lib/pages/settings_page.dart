@@ -369,7 +369,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showUpdateError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _ensureInstallPermission() async {
