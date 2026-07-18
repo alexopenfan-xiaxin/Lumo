@@ -72,21 +72,70 @@ class CompanionAvatar extends StatelessWidget {
                     excludeFromSemantics: true,
                   ),
                 )
-              : Center(
-                  child: Text(
-                    companion.glyph,
-                    style: TextStyle(
-                      fontFamily: 'LumoDisplay',
-                      color: Colors.white,
-                      fontSize: size * 0.36,
-                    ),
-                  ),
-                ),
+              : companion.avatarUrl != null
+                  ? ClipOval(
+                      child: Image.network(
+                        companion.avatarUrl!,
+                        fit: BoxFit.cover,
+                        alignment: const Alignment(0, -0.2),
+                        excludeFromSemantics: true,
+                        errorBuilder: (_, _, _) => _AvatarGlyph(companion: companion, size: size),
+                      ),
+                    )
+                  : _AvatarGlyph(companion: companion, size: size),
         ),
       ),
     );
     return heroTag == null ? avatar : Hero(tag: heroTag!, child: avatar);
   }
+}
+
+class _AvatarGlyph extends StatelessWidget {
+  const _AvatarGlyph({required this.companion, required this.size});
+
+  final Companion companion;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Text(
+      companion.glyph,
+      style: TextStyle(
+        fontFamily: 'LumoDisplay',
+        color: Colors.white,
+        fontSize: size * 0.36,
+      ),
+    ),
+  );
+}
+
+class AgentCatalogNotice extends StatelessWidget {
+  const AgentCatalogNotice({required this.message, required this.onRetry, super.key});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.errorContainer,
+    borderRadius: BorderRadius.circular(16),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.onErrorContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '$message 已显示本机列表。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onErrorContainer),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('重试')),
+        ],
+      ),
+    ),
+  );
 }
 
 class LumoPageTitle extends StatelessWidget {

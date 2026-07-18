@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'agent_client.dart';
+import 'data.dart';
 import 'pages/agents_page.dart';
 import 'pages/explore_page.dart';
 import 'pages/home_page.dart';
@@ -23,6 +25,24 @@ class _LumoShellState extends State<LumoShell> {
   int _index = 0;
   bool _draggingSelection = false;
   final _dockKey = GlobalKey();
+  List<Companion> _companions = companions;
+  String? _catalogError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAgents();
+  }
+
+  Future<void> _loadAgents() async {
+    setState(() => _catalogError = null);
+    try {
+      final loaded = await const AgentClient().fetchAgents();
+      if (mounted) setState(() => _companions = loaded);
+    } on AgentCatalogException catch (error) {
+      if (mounted) setState(() => _catalogError = error.message);
+    }
+  }
 
   static const _destinations = [
     _DockDestination(label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
@@ -44,14 +64,14 @@ class _LumoShellState extends State<LumoShell> {
 
   @override
   Widget build(BuildContext context) {
-    final duration = MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 600);
+    final duration = MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 240);
     return Scaffold(
       body: IndexedStack(
         index: _index,
         children: [
           const HomePage(),
-          const AgentsPage(),
-          const ExplorePage(),
+          AgentsPage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
+          ExplorePage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
           SettingsPage(
             themeMode: widget.themeMode,
             onThemeModeChanged: widget.onThemeModeChanged,
@@ -125,7 +145,7 @@ class _FloatingDock extends StatelessWidget {
                 children: [
                   AnimatedAlign(
                     duration: duration,
-                    curve: Curves.elasticOut,
+                    curve: Curves.easeOutCubic,
                     alignment: Alignment(-1 + (2 * selectedIndex / (destinations.length - 1)), 0),
                     child: SizedBox(
                       width: constraints.maxWidth / destinations.length,
@@ -187,7 +207,7 @@ class _DockItem extends StatelessWidget {
             const SizedBox(height: 2),
             AnimatedDefaultTextStyle(
               duration: duration,
-              curve: Curves.elasticOut,
+              curve: Curves.easeOutCubic,
               style: theme.textTheme.labelLarge!.copyWith(color: color, fontSize: 11),
               child: ExcludeSemantics(child: Text(destination.label)),
             ),
@@ -209,7 +229,7 @@ class _DockIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
         duration: duration,
-        curve: Curves.elasticOut,
+        curve: Curves.easeOutCubic,
         tween: ColorTween(end: color),
         builder: (context, value, child) => Icon(selected ? destination.selectedIcon : destination.icon, color: value),
       );

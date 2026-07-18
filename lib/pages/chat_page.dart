@@ -521,7 +521,7 @@ class _ChatPageState extends State<ChatPage> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                     children: [
                       for (final message in _messages)
-                        _MessageBubble(message: message, color: widget.companion.color)
+                        _MessageBubble(message: message)
                             .animate(key: ValueKey(message.id))
                             .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
                             .slideY(begin: 0.04, end: 0),
@@ -633,10 +633,9 @@ class _ChatMessage {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.color});
+  const _MessageBubble({required this.message});
 
   final _ChatMessage message;
-  final Color color;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -646,7 +645,7 @@ class _MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: message.fromUser ? color : Theme.of(context).colorScheme.surface,
+        color: message.fromUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
@@ -655,7 +654,12 @@ class _MessageBubble extends StatelessWidget {
         ),
         border: message.fromUser ? null : Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Text(message.text, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: message.fromUser ? Colors.white : null)),
+      child: Text(
+        message.text,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: message.fromUser ? Theme.of(context).colorScheme.onPrimary : null,
+        ),
+      ),
     ),
   );
 }

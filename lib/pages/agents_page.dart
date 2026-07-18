@@ -6,7 +6,11 @@ import '../widgets.dart';
 import 'chat_page.dart';
 
 class AgentsPage extends StatelessWidget {
-  const AgentsPage({super.key});
+  const AgentsPage({required this.companions, required this.catalogError, required this.onRetry, super.key});
+
+  final List<Companion> companions;
+  final String? catalogError;
+  final VoidCallback onRetry;
 
   void _openChat(BuildContext context, Companion companion) {
     Navigator.of(context).push(
@@ -27,7 +31,18 @@ class AgentsPage extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
           const LumoPageTitle(title: '智能体', subtitle: '选择一位陪伴者延续对话'),
+          if (catalogError != null) ...[
+            const SizedBox(height: 16),
+            AgentCatalogNotice(message: catalogError!, onRetry: onRetry),
+          ],
           const SizedBox(height: 22),
+          if (companions.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('暂时没有已上线的智能体。', textAlign: TextAlign.center),
+              ),
+            ),
           for (var index = 0; index < companions.length; index++) ...[
             Card(
               clipBehavior: Clip.antiAlias,

@@ -6,7 +6,11 @@ import '../widgets.dart';
 import 'chat_page.dart';
 
 class ExplorePage extends StatelessWidget {
-  const ExplorePage({super.key});
+  const ExplorePage({required this.companions, required this.catalogError, required this.onRetry, super.key});
+
+  final List<Companion> companions;
+  final String? catalogError;
+  final VoidCallback onRetry;
 
   void _openChat(BuildContext context, Companion companion) {
     Navigator.of(context).push(
@@ -65,7 +69,18 @@ class ExplorePage extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
           const LumoPageTitle(title: '探索', subtitle: '认识这里的陪伴者'),
+          if (catalogError != null) ...[
+            const SizedBox(height: 16),
+            AgentCatalogNotice(message: catalogError!, onRetry: onRetry),
+          ],
           const SizedBox(height: 24),
+          if (companions.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('新的陪伴者正在准备中。', textAlign: TextAlign.center),
+              ),
+            ),
           for (var index = 0; index < companions.length; index++) ...[
             Card(
               clipBehavior: Clip.antiAlias,

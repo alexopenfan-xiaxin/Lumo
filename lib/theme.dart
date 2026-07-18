@@ -78,6 +78,33 @@ ThemeData buildLumoTheme(Brightness brightness) {
         side: BorderSide(color: border),
       ),
     ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: foreground,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(44, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+    ),
+    listTileTheme: const ListTileThemeData(
+      minTileHeight: 56,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: isDark ? const Color(0xFF292521) : const Color(0xFFF3EFEA),
@@ -96,6 +123,7 @@ ThemeData buildLumoTheme(Brightness brightness) {
       ),
     ),
     dividerColor: border,
+    dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
       modalBackgroundColor: scheme.surface,

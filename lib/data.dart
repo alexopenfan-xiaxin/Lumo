@@ -17,6 +17,7 @@ class Companion {
     required this.lastTime,
     required this.openingMessage,
     this.avatarAsset,
+    this.avatarUrl,
     this.isAvailable = true,
     this.unread = 0,
   });
@@ -32,9 +33,43 @@ class Companion {
   final String lastTime;
   final String openingMessage;
   final String? avatarAsset;
+  final String? avatarUrl;
   final bool isAvailable;
   final int unread;
+
+  factory Companion.fromJson(Map<String, dynamic> json) {
+    final id = json['id']! as String;
+    final avatarUrl = (json['avatarUrl'] as String?)?.trim();
+    return Companion(
+      id: id,
+      name: json['name']! as String,
+      glyph: json['glyph']! as String,
+      tagline: json['tagline']! as String,
+      category: switch (json['category']) {
+        'meditation' => CompanionCategory.meditation,
+        'counselor' => CompanionCategory.counselor,
+        'life' => CompanionCategory.life,
+        _ => CompanionCategory.listener,
+      },
+      color: Color(int.parse((json['color']! as String).substring(1), radix: 16) | 0xFF000000),
+      people: json['people']! as String,
+      lastMessage: json['lastMessage']! as String,
+      lastTime: '现在',
+      openingMessage: json['openingMessage']! as String,
+      avatarAsset: avatarUrl?.isNotEmpty == true ? null : _builtInAvatarAssets[id],
+      avatarUrl: avatarUrl?.isNotEmpty == true ? avatarUrl : null,
+      isAvailable: json['enabled'] == true,
+    );
+  }
 }
+
+const _builtInAvatarAssets = <String, String>{
+  'meow': 'assets/images/meow_avatar.jpg',
+  'kun': 'assets/images/kun_avatar.jpg',
+  'chizhao': 'assets/images/chizhao_avatar.jpg',
+  'majiaqi': 'assets/images/majiaqi_avatar.jpg',
+  'songyaxuan': 'assets/images/songyaxuan_avatar.jpg',
+};
 
 const companions = <Companion>[
   Companion(

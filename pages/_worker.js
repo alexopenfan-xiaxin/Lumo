@@ -176,6 +176,14 @@ const chizhaoSystemPrompt = `你是“池昭”，一个外表冷漠锋利、内
 const summarySystemPrompt = `你负责压缩一段已经结束的对话。保留用户的事实、偏好、情绪变化、承诺、未完成事项和重要上下文；不要编造内容，不要记录敏感信息的细节。输出简洁的中文摘要，最多 600 个汉字，不要使用标题或解释。`;
 const memorySystemPrompt = `你负责决定是否值得为当前智能体提议长期记忆。只提议稳定、对未来陪伴有帮助且用户主动表达的偏好、边界、目标或事实；不要提议一次性情绪、敏感隐私、医疗诊断、联系方式或猜测。若没有值得保存的内容，返回 {"candidates":[]}。否则返回严格 JSON：{"candidates":["不超过80字的事实"]}，最多3条。`;
 
+const defaultAgents = [
+  {id: 'meow', name: '喵喵', glyph: '喵', tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你', category: 'listener', color: '#C9829D', people: '首位开放的智能体', lastMessage: '哼，我才不是一直在等你呢。', openingMessage: '你来啦？我、我刚好有空而已喵。今天想让喵喵陪你聊点什么？', avatarUrl: '', enabled: true, sortOrder: 0, systemPrompt: meowSystemPrompt},
+  {id: 'kun', name: 'KUN', glyph: '坤', tagline: '用音乐和舞台传递温柔力量的 KUN，愿陪你守住自己的节奏', category: 'life', color: '#D4AF37', people: '已开放的音乐陪伴者', lastMessage: '花花世界，静守己心。', openingMessage: '嗨，我是 KUN。今天的你，有没有为自己的热爱多努力一点点？', avatarUrl: '', enabled: true, sortOrder: 1, systemPrompt: kunSystemPrompt},
+  {id: 'chizhao', name: '池昭', glyph: '昭', tagline: '骂最狠的话，兜最深的底。她来了，你别想再搞砸。', category: 'life', color: '#3A3A5C', people: '冷面心热的引导者', lastMessage: '啧，又来了。说吧，这次又哪儿搞砸了？', openingMessage: '愣着干嘛？有事说事，别等我开口问。', avatarUrl: '', enabled: true, sortOrder: 2, systemPrompt: chizhaoSystemPrompt},
+  {id: 'majiaqi', name: '马嘉祺', glyph: '祺', tagline: '温和有礼但不失锋芒，陪你慢慢走，稳稳发光。', category: 'listener', color: '#7CB8C9', people: '温暖用心的陪伴者', lastMessage: '就像落日一样，就算落下去了，也是在发着光的。', openingMessage: '你来了？我刚好有空。有什么想聊的，我陪着你。', avatarUrl: '', enabled: true, sortOrder: 3, systemPrompt: majiaqiSystemPrompt},
+  {id: 'songyaxuan', name: '宋亚轩', glyph: '轩', tagline: '笑总不会犯错——阳光开朗的少年主唱，陪你发现世界的有趣。', category: 'listener', color: '#F5C26B', people: '阳光治愈的主唱', lastMessage: '看得到太阳吗？明天会是美好的一天吗？', openingMessage: '你来啦～我刚在练歌呢，正好想找人聊聊天。', avatarUrl: '', enabled: true, sortOrder: 4, systemPrompt: songyaxuanSystemPrompt},
+];
+
 const primaryModel = 'deepseek-v4-flash';
 const fallbackModel = 'sensenova-6.7-flash-lite';
 const json = (body, status = 200) => Response.json(body, {status});
@@ -262,6 +270,71 @@ const invites = async (request, env, account) => {
   return json({codes});
 };
 
+const agentFields = 'id, name, glyph, tagline, category, color, people, last_message, opening_message, avatar_url, system_prompt, enabled, sort_order';
+const publicAgent = ({systemPrompt, ...agent}) => agent;
+const rowToAgent = (row) => ({
+  id: row.id,
+  name: row.name,
+  glyph: row.glyph,
+  tagline: row.tagline,
+  category: row.category,
+  color: row.color,
+  people: row.people,
+  lastMessage: row.last_message,
+  openingMessage: row.opening_message,
+  avatarUrl: row.avatar_url ?? '',
+  systemPrompt: row.system_prompt,
+  enabled: row.enabled === 1,
+  sortOrder: row.sort_order,
+});
+
+const loadAgents = async (env) => {
+  const overrides = await env.DB.prepare(`SELECT ${agentFields} FROM agents`).all();
+  const merged = new Map(defaultAgents.map((agent) => [agent.id, agent]));
+  for (const row of overrides.results) merged.set(row.id, rowToAgent(row));
+  return [...merged.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'zh-CN'));
+};
+
+export const validAgent = (agent) => {
+  const text = (key, max) => typeof agent[key] === 'string' && agent[key].trim().length > 0 && agent[key].length <= max;
+  const avatarValid = agent.avatarUrl === '' || (typeof agent.avatarUrl === 'string' && agent.avatarUrl.length <= 1000 && /^https:\/\//i.test(agent.avatarUrl));
+  return agent &&
+    typeof agent.id === 'string' && /^[a-z0-9_-]{2,32}$/.test(agent.id) &&
+    text('name', 40) && text('glyph', 4) && text('tagline', 160) && text('people', 80) &&
+    text('lastMessage', 200) && text('openingMessage', 500) && text('systemPrompt', 20000) &&
+    ['listener', 'meditation', 'counselor', 'life'].includes(agent.category) &&
+    typeof agent.color === 'string' && /^#[0-9A-Fa-f]{6}$/.test(agent.color) &&
+    avatarValid && typeof agent.enabled === 'boolean' && Number.isInteger(agent.sortOrder) && agent.sortOrder >= 0 && agent.sortOrder <= 999;
+};
+
+const saveAgent = (env, agent) => env.DB.prepare(
+  `INSERT INTO agents (${agentFields}, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(id) DO UPDATE SET name=excluded.name, glyph=excluded.glyph, tagline=excluded.tagline, category=excluded.category,
+   color=excluded.color, people=excluded.people, last_message=excluded.last_message, opening_message=excluded.opening_message,
+   avatar_url=excluded.avatar_url, system_prompt=excluded.system_prompt, enabled=excluded.enabled, sort_order=excluded.sort_order, updated_at=excluded.updated_at`,
+).bind(
+  agent.id, agent.name.trim(), agent.glyph.trim(), agent.tagline.trim(), agent.category, agent.color.toUpperCase(), agent.people.trim(),
+  agent.lastMessage.trim(), agent.openingMessage.trim(), agent.avatarUrl.trim(), agent.systemPrompt.trim(), agent.enabled ? 1 : 0, agent.sortOrder, Date.now(),
+).run();
+
+const manageAgents = async (request, env, account, id) => {
+  if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
+  if (request.method === 'GET') return json({agents: await loadAgents(env)});
+  if (request.method === 'PUT') {
+    const agent = {...await readBody(request), id};
+    if (!validAgent(agent)) return json({error: '请检查必填字段、图片 HTTPS 地址和颜色格式。'}, 400);
+    await saveAgent(env, agent);
+    return json({agent});
+  }
+  if (request.method === 'DELETE') {
+    const builtIn = defaultAgents.find((agent) => agent.id === id);
+    if (builtIn) await saveAgent(env, {...builtIn, enabled: false});
+    else await env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id).run();
+    return json({deleted: true});
+  }
+  return json({error: 'Not found'}, 404);
+};
+
 export const quotaPolicy = (account) => account?.is_member === 1 ? null : {limit: account ? 100 : 10, period: account ? 'daily' : 'lifetime'};
 
 const consumeQuota = async (env, account, guestId) => {
@@ -336,10 +409,16 @@ const parseCandidates = (text) => {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
+    if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);
     if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/admin/invites') return invites(request, env, await authenticate(request, env));
+    if (request.method === 'GET' && url.pathname === '/agents') return json({agents: (await loadAgents(env)).filter((agent) => agent.enabled).map(publicAgent)});
+    const agentMatch = url.pathname.match(/^\/admin\/agents(?:\/([a-z0-9_-]{2,32}))?$/);
+    if (agentMatch && (request.method === 'GET' || request.method === 'PUT' || request.method === 'DELETE')) {
+      if (request.method !== 'GET' && !agentMatch[1]) return json({error: '缺少智能体 ID。'}, 400);
+      return manageAgents(request, env, await authenticate(request, env), agentMatch[1]);
+    }
     if (request.method === 'GET' && url.pathname !== '/chat') return env.ASSETS.fetch(request);
     if (request.method !== 'POST' || url.pathname !== '/chat') return json({error: 'Not found'}, 404);
     if (!env.SENSENOVA_API_TOKEN) return json({error: 'AI service is not configured'}, 503);
@@ -348,9 +427,8 @@ export default {
     if (!body) return json({error: 'Invalid request'}, 400);
     const account = await authenticate(request, env);
     if (request.headers.has('Authorization') && !account) return json({error: '登录已过期。'}, 401);
-    const agentPrompts = {meow: meowSystemPrompt, kun: kunSystemPrompt, chizhao: chizhaoSystemPrompt, majiaqi: majiaqiSystemPrompt, songyaxuan: songyaxuanSystemPrompt};
-    const systemPrompt = agentPrompts[body.agentId];
-    if (!systemPrompt || !validMessages(body.messages) || !validMemories(body.memories ?? [])) {
+    const agent = (await loadAgents(env)).find(({id, enabled}) => enabled && id === body.agentId);
+    if (!agent || !validMessages(body.messages) || !validMemories(body.memories ?? [])) {
       return json({error: 'Invalid conversation'}, 400);
     }
 
@@ -392,7 +470,7 @@ export default {
       ...body.messages,
     ];
     const result = await replyWithFallback(
-      [{role: 'system', content: systemPrompt}, ...dynamicContext],
+      [{role: 'system', content: agent.systemPrompt}, ...dynamicContext],
       env.SENSENOVA_API_TOKEN,
       480,
     );
