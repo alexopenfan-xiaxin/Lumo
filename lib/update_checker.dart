@@ -6,9 +6,10 @@ import 'package:flutter/services.dart';
 import 'app_info.dart';
 
 class ReleaseUpdate {
-  const ReleaseUpdate({required this.version, required this.url});
+  const ReleaseUpdate({required this.version, required this.build, required this.url});
 
   final String version;
+  final int build;
   final Uri url;
 }
 
@@ -32,13 +33,14 @@ class UpdateChecker {
       final asset = assets.whereType<Map<String, dynamic>>().where((item) => item['name'] == 'app-release.apk').firstOrNull;
       final url = asset?['browser_download_url'];
       if (url is! String) throw const FormatException('Missing APK');
-      final match = RegExp(r'^v(\d+\.\d+\.\d+)-build\.\d+$').firstMatch(tag);
+      final match = RegExp(r'^v(\d+\.\d+\.\d+)-build\.(\d+)$').firstMatch(tag);
       final releaseUrl = Uri.tryParse(url);
       if (match == null || releaseUrl == null || releaseUrl.scheme != 'https' || releaseUrl.host != 'github.com') {
         throw const FormatException('Invalid release');
       }
       final version = match.group(1)!;
-      return compareVersions(version, appVersion) > 0 ? ReleaseUpdate(version: version, url: releaseUrl) : null;
+      final build = int.parse(match.group(2)!);
+      return isNewerRelease(version, build, appVersion, appReleaseBuild) ? ReleaseUpdate(version: version, build: build, url: releaseUrl) : null;
     } finally {
       client.close(force: true);
     }
@@ -55,4 +57,9 @@ int compareVersions(String left, String right) {
     if (comparison != 0) return comparison;
   }
   return 0;
+}
+
+bool isNewerRelease(String releaseVersion, int releaseBuild, String installedVersion, int installedBuild) {
+  final versionComparison = compareVersions(releaseVersion, installedVersion);
+  return versionComparison > 0 || (versionComparison == 0 && releaseBuild > installedBuild);
 }

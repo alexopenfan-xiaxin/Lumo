@@ -34,7 +34,7 @@ jobs:
           LUMO_AI_ENDPOINT: ${{ vars.LUMO_AI_ENDPOINT }}
         run: |
           version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
-          flutter build apk --release --target-platform android-arm64 --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" --dart-define=APP_VERSION="$version"
+          flutter build apk --release --target-platform android-arm64 --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" --dart-define=APP_VERSION="$version" --dart-define=APP_RELEASE_BUILD="$GITHUB_RUN_NUMBER"
       - name: Verify release signature
         run: |
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"

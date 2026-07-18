@@ -149,7 +149,7 @@ class _SettingsPageState extends State<SettingsPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('已是最新版本'),
-            content: Text('当前版本 $appVersion 已是 GitHub Release 中的最新版本。'),
+            content: Text('当前版本 $appVersionLabel 已是 GitHub Release 中的最新版本。'),
             actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了'))],
           ),
         );
@@ -158,7 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('发现新版本 ${update.version}'),
+          title: Text('发现新版本 ${update.version}（构建 ${update.build}）'),
           content: const Text('将在应用内下载 APK，下载完成后会打开系统安装器。'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后再说')),
@@ -270,17 +270,17 @@ class _SettingsPageState extends State<SettingsPage> {
               _SettingsTile(
                 icon: Icons.system_update_outlined,
                 title: '检查更新',
-                value: appVersion,
+                value: appVersionLabel,
                 onTap: _checkForUpdate,
               ),
               _SettingsTile(
                 icon: Icons.info_outline_rounded,
                 title: '关于 Lumo',
-                value: appVersion,
+                value: appVersionLabel,
                 onTap: () => showAboutDialog(
                   context: context,
                   applicationName: 'Lumo',
-                  applicationVersion: appVersion,
+                  applicationVersion: appVersionLabel,
                   applicationLegalese: '© 2026 Lumo contributors',
                   applicationIcon: const LumoMark(size: 52),
                 ),
