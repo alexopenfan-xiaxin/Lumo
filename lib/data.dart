@@ -93,6 +93,20 @@ const companions = <Companion>[
     avatarAsset: 'assets/images/majiaqi_avatar.jpg',
     isAvailable: true,
   ),
+  Companion(
+    id: 'songyaxuan',
+    name: '宋亚轩',
+    glyph: '轩',
+    tagline: '笑总不会犯错——阳光开朗的少年主唱，陪你发现世界的有趣。',
+    category: CompanionCategory.listener,
+    color: Color(0xFFF5C26B),
+    people: '阳光治愈的主唱',
+    lastMessage: '看得到太阳吗？明天会是美好的一天吗？',
+    lastTime: '现在',
+    openingMessage: '你来啦～我刚在练歌呢，正好想找人聊聊天。',
+    avatarAsset: 'assets/images/songyaxuan_avatar.jpg',
+    isAvailable: true,
+  ),
 ];
 
 class NoticeItem {
