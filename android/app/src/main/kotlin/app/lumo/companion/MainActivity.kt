@@ -69,12 +69,15 @@ class MainActivity : FlutterActivity() {
                     return@setMethodCallHandler
                 }
                 try {
+                    getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                        ?.listFiles { file -> file.name.startsWith("lumo-update-") && file.extension == "apk" }
+                        ?.forEach { file -> file.delete() }
                     val request = DownloadManager.Request(uri)
                         .setTitle("Lumo 更新")
                         .setDescription("正在下载最新版本")
                         .setMimeType("application/vnd.android.package-archive")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                        .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "lumo-update.apk")
+                        .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "lumo-update-${System.currentTimeMillis()}.apk")
                     pendingDownloadId = downloadManager.enqueue(request)
                     result.success("downloading")
                 } catch (error: Exception) {

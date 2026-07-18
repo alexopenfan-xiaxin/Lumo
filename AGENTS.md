@@ -28,6 +28,7 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - Release builds target `android-arm64` only and publish one asset named `app-release.apk`. Keep that filename because the in-app updater resolves this exact Release asset; retain the signed APK check plus the ABI check that rejects `armeabi-v7a` and `x86_64` libraries.
 - arm64-only releases reduce download size but do not support 32-bit Android devices. State that limitation in the released in-app announcement and GitHub Release notes; do not silently switch back to universal APKs.
 - Release tags use `v<pubspec semantic version>-build.<GitHub run number>` to make every package unique. Bump `pubspec.yaml` `version` for a new app version; never reuse an existing release tag for a different build.
+- Do not change `pubspec.yaml` version unless the user explicitly requests a version bump or release version.
 - `Debug` remains unsigned by the release key and publishes only the `lumo-debug-apk` artifact; it must not create a GitHub Release.
 - Keep repository visibility public without exposing any secret in source, logs, workflow output, issues, or releases.
 

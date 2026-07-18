@@ -170,8 +170,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   messenger.showSnackBar(
                     SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再点一次“检查更新”。' : '更新开始下载，完成后将打开安装器。')),
                   );
-                } on PlatformException {
-                  messenger.showSnackBar(const SnackBar(content: Text('无法开始下载，请稍后再试。')));
+                } on PlatformException catch (error) {
+                  messenger.showSnackBar(SnackBar(content: Text(error.message ?? '无法开始下载，请稍后再试。')));
                 }
               },
               child: const Text('去下载'),
