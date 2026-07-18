@@ -98,7 +98,7 @@ void main() {
         home: ChatPage(companion: companions.first, heroTag: 'test-chat'),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.byTooltip('切换到语音输入'), findsOneWidget);
     expect(find.byTooltip('发送'), findsOneWidget);
     expect(find.text('说说此刻的感受…'), findsOneWidget);
