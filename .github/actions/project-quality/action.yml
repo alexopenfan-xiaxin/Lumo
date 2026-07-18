@@ -1,0 +1,32 @@
+name: Project quality gate
+description: Resolve locked dependencies, then verify formatting, Flutter code, tests, and the Pages Worker.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Java 17 with Gradle cache
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: '17'
+        cache: gradle
+    - name: Set up Flutter stable with cache
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+    - name: Resolve locked dependencies
+      shell: bash
+      run: flutter pub get --enforce-lockfile
+    - name: Check formatting
+      shell: bash
+      run: dart format --output=none --set-exit-if-changed lib test
+    - name: Analyze Flutter code
+      shell: bash
+      run: flutter analyze --fatal-infos
+    - name: Run Flutter tests
+      shell: bash
+      run: flutter test
+    - name: Run Pages Worker tests
+      shell: bash
+      run: node --test pages/worker_test.mjs

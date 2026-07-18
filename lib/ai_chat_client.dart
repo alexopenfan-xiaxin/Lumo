@@ -5,7 +5,8 @@ import 'auth_client.dart';
 
 class AiChatClient {
   AiChatClient({String? endpoint, AuthClient? authClient})
-      : _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT'),
+      : _endpoint =
+            endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT'),
         _authClient = authClient ?? AuthClient(endpoint: endpoint);
 
   final String _endpoint;
@@ -30,7 +31,8 @@ class AiChatClient {
       },
     );
     final reply = response['reply'];
-    if (reply is! String || reply.trim().isEmpty) throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
+    if (reply is! String || reply.trim().isEmpty)
+      throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
     return reply.trim();
   }
 
@@ -67,21 +69,31 @@ class AiChatClient {
     );
     final candidates = response['candidates'];
     if (candidates is! List) return const [];
-    return candidates.whereType<String>().map((candidate) => candidate.trim()).where((candidate) => candidate.isNotEmpty).toList();
+    return candidates
+        .whereType<String>()
+        .map((candidate) => candidate.trim())
+        .where((candidate) => candidate.isNotEmpty)
+        .toList();
   }
 
-  Future<Map<String, dynamic>> _request({required String agentId, required Map<String, dynamic> body}) async {
+  Future<Map<String, dynamic>> _request(
+      {required String agentId, required Map<String, dynamic> body}) async {
     if (_endpoint.isEmpty) throw const AiChatException('AI 服务还没有部署完成。');
     final client = HttpClient();
     try {
       final identity = await _authClient.identity();
       final request = await client.postUrl(Uri.parse(_endpoint));
       request.headers.contentType = ContentType.json;
-      if (identity.token != null) request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${identity.token}');
-      request.write(jsonEncode({'agentId': agentId, 'guestId': identity.guestId, ...body}));
+      if (identity.token != null)
+        request.headers
+            .set(HttpHeaders.authorizationHeader, 'Bearer ${identity.token}');
+      request.write(jsonEncode(
+          {'agentId': agentId, 'guestId': identity.guestId, ...body}));
       final response = await request.close();
-      final decoded = jsonDecode(await utf8.decoder.bind(response).join()) as Map<String, dynamic>;
-      if (response.statusCode == HttpStatus.requestEntityTooLarge && decoded['contextLimit'] == true) {
+      final decoded = jsonDecode(await utf8.decoder.bind(response).join())
+          as Map<String, dynamic>;
+      if (response.statusCode == HttpStatus.requestEntityTooLarge &&
+          decoded['contextLimit'] == true) {
         throw const AiContextLimitException();
       }
       if (response.statusCode == HttpStatus.tooManyRequests) {
@@ -90,7 +102,8 @@ class AiChatClient {
       if (response.statusCode == HttpStatus.unauthorized) {
         throw const AiChatException('登录已过期，请在设置中重新登录。');
       }
-      if (response.statusCode != HttpStatus.ok) throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
+      if (response.statusCode != HttpStatus.ok)
+        throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
       return decoded;
     } on SocketException {
       throw const AiChatException('网络好像开小差了，检查连接后再试试吧。');

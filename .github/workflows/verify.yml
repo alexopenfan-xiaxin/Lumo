@@ -1,0 +1,43 @@
+name: Verify
+run-name: Verify ${{ github.ref_name }} @ ${{ github.sha }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/**'
+      - 'android/**'
+      - 'lib/**'
+      - 'pages/**'
+      - 'test/**'
+      - 'analysis_options.yaml'
+      - 'pubspec.lock'
+      - 'pubspec.yaml'
+  pull_request:
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/**'
+      - 'android/**'
+      - 'lib/**'
+      - 'pages/**'
+      - 'test/**'
+      - 'analysis_options.yaml'
+      - 'pubspec.lock'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/project-quality

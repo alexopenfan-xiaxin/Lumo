@@ -5,8 +5,10 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   setUpAll(sqfliteFfiInit);
 
-  test('stores a conversation and deletes compressed source messages', () async {
-    final store = ChatStore(factory: databaseFactoryFfi, databasePath: ':memory:');
+  test('stores a conversation and deletes compressed source messages',
+      () async {
+    final store =
+        ChatStore(factory: databaseFactoryFfi, databasePath: ':memory:');
     final conversation = await store.createConversation('meow');
     final first = await store.addMessage(
       conversationId: conversation.id,
@@ -32,13 +34,18 @@ void main() {
   });
 
   test('keeps memory candidates pending until approved', () async {
-    final store = ChatStore(factory: databaseFactoryFfi, databasePath: ':memory:');
+    final store =
+        ChatStore(factory: databaseFactoryFfi, databasePath: ':memory:');
     await store.addMemoryCandidates('meow', ['用户偏好简短的晚间聊天。']);
-    final pending = await store.memories('meow', status: MemoryStatus.pending.name);
+    final pending =
+        await store.memories('meow', status: MemoryStatus.pending.name);
     expect(pending, hasLength(1));
 
-    await store.updateMemory(pending.single.copyWith(status: MemoryStatus.approved));
-    expect(await store.memories('meow', status: MemoryStatus.pending.name), isEmpty);
-    expect(await store.memories('meow', status: MemoryStatus.approved.name), hasLength(1));
+    await store
+        .updateMemory(pending.single.copyWith(status: MemoryStatus.approved));
+    expect(await store.memories('meow', status: MemoryStatus.pending.name),
+        isEmpty);
+    expect(await store.memories('meow', status: MemoryStatus.approved.name),
+        hasLength(1));
   });
 }

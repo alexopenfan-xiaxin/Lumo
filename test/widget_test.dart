@@ -21,7 +21,10 @@ void main() {
 
     final homeDock = find.byKey(const ValueKey('dock-首页'));
     expect(homeDock, findsOneWidget);
-    expect(tester.getSemantics(homeDock), isSemantics(label: '首页', isButton: true, isSelected: true, hasTapAction: true));
+    expect(
+        tester.getSemantics(homeDock),
+        isSemantics(
+            label: '首页', isButton: true, isSelected: true, hasTapAction: true));
 
     await tester.tap(find.byKey(const ValueKey('dock-智能体')));
     await tester.pumpAndSettle();
@@ -39,14 +42,16 @@ void main() {
     await tester.tap(homeDock);
     await tester.pumpAndSettle();
     final gesture = await tester.startGesture(tester.getCenter(homeDock));
-    await gesture.moveTo(tester.getCenter(find.byKey(const ValueKey('dock-个人'))));
+    await gesture
+        .moveTo(tester.getCenter(find.byKey(const ValueKey('dock-个人'))));
     await gesture.up();
     await tester.pumpAndSettle();
     expect(find.text('游客用户'), findsOneWidget);
     semantics.dispose();
   });
 
-  testWidgets('primary surfaces remain usable on a small phone with large text', (tester) async {
+  testWidgets('primary surfaces remain usable on a small phone with large text',
+      (tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.6;
@@ -67,7 +72,9 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('知道了'),
       240,
-      scrollable: find.descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable)),
+      scrollable: find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Scrollable)),
     );
     await tester.tap(find.text('知道了'));
     await tester.pumpAndSettle();
@@ -78,7 +85,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('dark mode and chat controls expose clear states', (tester) async {
+  testWidgets('dark mode and chat controls expose clear states',
+      (tester) async {
     tester.view.physicalSize = const Size(700, 420);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -90,14 +98,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('深色模式'), 160);
-    await tester.drag(find.byKey(const PageStorageKey('profile-scroll')), const Offset(0, -80));
+    await tester.drag(find.byKey(const PageStorageKey('profile-scroll')),
+        const Offset(0, -80));
     await tester.pumpAndSettle();
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     expect(find.text('浅色模式'), findsOneWidget);
-    expect(Theme.of(tester.element(find.text('浅色模式'))).brightness, Brightness.dark);
+    expect(Theme.of(tester.element(find.text('浅色模式'))).brightness,
+        Brightness.dark);
 
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('profile-settings')), -180);
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('profile-settings')), -180);
     await tester.tap(find.byKey(const ValueKey('profile-settings')));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsOneWidget);
@@ -134,10 +145,12 @@ void main() {
     expect(duration, Duration.zero);
   });
 
-  testWidgets('splash waits gently and exits when startup is ready', (tester) async {
+  testWidgets('splash waits gently and exits when startup is ready',
+      (tester) async {
     var finished = false;
     await tester.pumpWidget(
-      MaterialApp(home: LumoSplash(ready: false, onFinished: () => finished = true)),
+      MaterialApp(
+          home: LumoSplash(ready: false, onFinished: () => finished = true)),
     );
     expect(find.text('Lumo'), findsOneWidget);
     expect(find.text('点亮你的每一刻'), findsOneWidget);
@@ -147,7 +160,8 @@ void main() {
     expect(finished, isFalse);
 
     await tester.pumpWidget(
-      MaterialApp(home: LumoSplash(ready: true, onFinished: () => finished = true)),
+      MaterialApp(
+          home: LumoSplash(ready: true, onFinished: () => finished = true)),
     );
     await tester.pumpAndSettle();
     expect(finished, isTrue);

@@ -33,7 +33,9 @@ void main() {
       request.response.close();
     });
 
-    final agents = await AgentClient(endpoint: 'http://127.0.0.1:${server.port}/chat').fetchAgents();
+    final agents =
+        await AgentClient(endpoint: 'http://127.0.0.1:${server.port}/chat')
+            .fetchAgents();
 
     expect(agents.single.id, 'new_agent');
     expect(agents.single.avatarUrl, 'https://example.com/avatar.jpg');

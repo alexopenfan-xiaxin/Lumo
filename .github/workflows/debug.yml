@@ -1,7 +1,12 @@
 name: Debug
+run-name: Debug APK from ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
+
+concurrency:
+  group: debug-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -11,22 +16,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/project-quality
+      - name: Read app version
+        run: |
+          version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
+          test -n "$version"
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
       - name: Build debug APK
         env:
           LUMO_AI_ENDPOINT: ${{ vars.LUMO_AI_ENDPOINT }}
         run: |
-          version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
-          flutter build apk --debug --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" --dart-define=APP_VERSION="$version" --dart-define=APP_RELEASE_BUILD="$GITHUB_RUN_NUMBER"
-      - uses: actions/upload-artifact@v4
+          test -n "$LUMO_AI_ENDPOINT" || { echo "Missing LUMO_AI_ENDPOINT repository variable."; exit 1; }
+          flutter build apk --debug \
+            --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" \
+            --dart-define=APP_VERSION="$APP_VERSION" \
+            --dart-define=APP_RELEASE_BUILD="$GITHUB_RUN_NUMBER"
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
         with:
           name: lumo-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

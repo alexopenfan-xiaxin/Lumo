@@ -1,103 +1,108 @@
-# Lumo project rules
+# Lumo engineering rules
 
-## Local command restriction
+## 1. Authority and scope
 
-Do not run `flutter` or `dart` commands on this machine. This includes `flutter pub get`, `flutter analyze`, `flutter test`, `flutter build`, `dart format`, and any wrapper or script that invokes Flutter or Dart locally.
+- This file is the repository-wide engineering source of truth. More specific instructions override general ones; explicit user direction overrides project defaults unless it conflicts with platform safety or security policy.
+- Preserve unrelated user changes. Inspect the working tree before editing and keep each change scoped to the active request.
+- Do not self-authorize product-direction, architecture, security, cost, external-service, repository-visibility, or signing-ownership changes. Ask first.
+- Do not create or switch Git branches unless the user explicitly requests it. Release work runs from `main`.
 
-When this restriction prevents local compilation, never guess Flutter API names or named parameters. Treat the Flutter version resolved by the remote workflow as the compatibility source of truth; verify platform-facing APIs against that SDK's documentation/source before committing, then use remote `flutter analyze` as the first gate before tests or release work. For example, `SystemUiOverlayStyle` uses `systemNavigationBarColor`, not `navigationBarColor`.
+## 2. Local operating model
 
-Keep every `MethodChannel` argument shape identical on Dart and Android: calls read with `call.argument("name")` must send a named map, and each platform-facing channel change needs a focused test that asserts method names and arguments.
+- Never run `flutter`, `dart`, or any wrapper that invokes them on this machine. This includes dependency resolution, formatting, analysis, tests, and builds.
+- Static inspection and non-Flutter tooling are allowed. Use `rg`, `git diff --check`, platform source/docs, Node checks, and focused read-only diagnostics locally.
+- Never guess Flutter or platform APIs when local compilation is unavailable. Verify names and parameter shapes against the Flutter stable SDK used by Actions, then let remote analysis be the first compiler gate.
+- Keep Dart and Android `MethodChannel` method names and named-map arguments identical. Every channel change needs one focused test asserting method names and arguments; Android reads numeric Dart values as `Number` before conversion.
+- If Git over HTTPS fails once, use the authenticated GitHub API instead of repeatedly retrying transport.
 
-Do not create a Git branch unless the user explicitly asks for one. Work on the current branch, or on `main` when the requested change is to be released directly.
+### Change loop
 
-If GitHub Git over HTTPS is unavailable once, publish through the authenticated GitHub API instead of retrying the Git transport.
+1. Read this file, inspect `git status`, and trace the real callers/data path before editing.
+2. Reuse existing modules, tokens, dependencies, and platform APIs. Add the smallest complete implementation; avoid speculative abstractions and unrelated refactors.
+3. Add one focused automated check for each new branch, parser, persistence/API boundary, or platform-channel contract.
+4. Run local static checks only, then choose the smallest remote gate from the table below.
+5. Fix the shared root cause of failures, rerun the same gate, and report what passed and what remains device-only.
 
-Static file inspection and non-Flutter tooling are allowed. Flutter analysis, tests, and Android builds run only in GitHub Actions or another explicitly approved remote environment.
+## 3. Validation and workflow selection
 
-## Remote build workflows
+| Change | Required gate |
+| --- | --- |
+| Documentation or copy only | Local static inspection and `git diff --check` |
+| Rules, Actions, dependencies, Dart, Android, Pages Worker, tests | `Verify` |
+| A debug APK is requested | `Debug` |
+| A public APK or released user-visible behavior is requested | `Run` |
+| `pubspec.yaml` dependency constraints change | `Dependencies`, commit its `pubspec.lock`, then `Verify` |
 
-| Workflow | Build output | Use |
-| --- | --- | --- |
-| `Run` | Signed release APK, Actions artifact, and GitHub Release | Distribution and public download. |
-| `Debug` | Debug APK and Actions artifact | Development and device debugging. |
+- `Verify` runs automatically for relevant pushes to `main` and pull requests. It enforces the committed lockfile, formatting, `flutter analyze --fatal-infos`, Flutter tests, and Pages Worker tests.
+- Do not use `Run` as a generic CI check: every successful run publishes a public GitHub Release. Use it only when publication is intended.
+- Do not substitute `Debug` and `Run`; their signing, ABI, artifact, and publication contracts differ.
+- Never claim device-only behavior (installer launch, permissions, microphone, OEM UI) was physically verified when only CI ran. Provide a concrete device test path.
 
-Never substitute one workflow for the other. Both workflows are manual GitHub Actions dispatches; do not use local Flutter or Dart builds.
+### Workflow contracts
 
-### Release build and publishing
+| Workflow | Trigger/output |
+| --- | --- |
+| `Verify` | Automatic or manual quality gate; no APK |
+| `Dependencies` | Manual `pubspec.lock` artifact, retained 3 days |
+| `Debug` | Manual unsigned debug APK artifact, retained 7 days; no Release |
+| `Run` | Manual signed arm64 APK, 14-day artifact, and public GitHub Release |
 
-- `Run` must run `flutter pub get`, analysis, tests, release APK build, and `apksigner` verification before publishing.
-- `Run` reads its Android signing key only from GitHub Actions Secrets: `LUMO_KEYSTORE_BASE64`, `LUMO_KEY_ALIAS`, `LUMO_KEY_PASSWORD`, and `LUMO_STORE_PASSWORD`.
-- Never commit a keystore, `android/key.properties`, secret value, or private signing credential. Keep the generated keystore in an offline backup; replacing it prevents installed users from receiving normal app updates.
-- Every successful `Run` publishes the verified APK as an Actions artifact named `lumo-release-apk` and as a public GitHub Release asset.
-- Release builds target `android-arm64` only and publish one asset named `app-release.apk`. Keep that filename because the in-app updater resolves this exact Release asset; retain the signed APK check plus the ABI check that rejects `armeabi-v7a` and `x86_64` libraries.
-- Inject `APP_RELEASE_BUILD` from `GITHUB_RUN_NUMBER` into every APK. The updater compares semantic version first and then this build number, so a corrected public build can update users without changing the semantic version.
-- Keep updates independent of the Activity lifecycle: query `DownloadManager` by its returned ID, show that progress in-app, and explicitly open the installer after `STATUS_SUCCESSFUL`; do not rely on an Activity-scoped completion receiver.
-- arm64-only releases reduce download size but do not support 32-bit Android devices. State that limitation in the released in-app announcement and GitHub Release notes; do not silently switch back to universal APKs.
-- Release tags use `v<pubspec semantic version>-build.<GitHub run number>` to make every package unique. Bump `pubspec.yaml` `version` for a new app version; never reuse an existing release tag for a different build.
-- Do not change `pubspec.yaml` version unless the user explicitly requests a version bump or release version.
-- `Debug` remains unsigned by the release key and publishes only the `lumo-debug-apk` artifact; it must not create a GitHub Release.
-- Keep repository visibility public without exposing any secret in source, logs, workflow output, issues, or releases.
+- Dispatch `Run` only from `main` and supply accurate Markdown `release_notes`; there is no reusable default because stale notes are worse than a required input.
+- Keep `pubspec.lock` committed. Use `Dependencies` to refresh it on the same ref as `pubspec.yaml`; do not hand-edit it.
+- Keep shared quality steps in `.github/actions/project-quality/action.yml`. Update action majors only after checking their primary release notes and validating with `Verify`.
+- Debug runs cancel older runs for the same ref. Release runs serialize and never cancel one another.
 
-## AI and Cloudflare Pages deployment
+## 4. Release and signing invariants
 
-- All agents defined in `lib/data.dart` are available by default. Route each agent's conversation to the Cloudflare Pages `/chat` endpoint with its own `agentId`; the server selects the matching fixed identity prompt.
-- Never call SenseNova from Flutter and never pass its API token through `--dart-define`. The Android app receives only the public `LUMO_AI_ENDPOINT` GitHub Actions Variable, which must be the full HTTPS Pages `/chat` URL.
-- Keep each agent's fixed identity prompt, SenseNova token, model ID, request limits, and provider error handling in `pages/_worker.js`. Do not accept a client-supplied system prompt or agent ID other than the configured agents.
-- Maintain Meow’s persona: soft, attentive, lightly tsundere cat-girl tone in natural Chinese; practical and non-manipulative; no medical diagnosis, no fabricated real-world presence, and immediate gentle escalation toward local emergency/professional support for self-harm or imminent-danger signals.
-- Deploy `pages/` directly from this logged-in machine with `wrangler pages deploy` on the Cloudflare free plan; do not use a GitHub Actions deployment workflow. Store `SENSENOVA_API_TOKEN` only with `wrangler pages secret put SENSENOVA_API_TOKEN`.
-- Use `deepseek-v4-flash` as the primary model. Retry exactly once with `sensenova-6.7-flash-lite` only when the provider reports rate/limit exhaustion (HTTP 429 or provider code 8); do not query or guess model IDs.
-- Use the OpenAI-compatible SenseNova endpoint `https://token.sensenova.cn/v1/chat/completions`, with string message content and `choices[0].message.content` responses. Do not use the legacy `api.sensenova.cn/v1/llm` protocol for this `sk-` API key.
-- Cloudflare Web Crypto accepts at most 100,000 PBKDF2 iterations; keep password hashing at that supported ceiling and verify it against the deployed Worker.
-- After Wrangler deploy, set `LUMO_AI_ENDPOINT` to the deployed HTTPS Pages `/chat` URL using a GitHub Actions Variable, then run `Run`. The app must surface a clear retryable error instead of fabricating an AI reply when the endpoint or provider is unavailable.
-- Treat an API token sent in chat, source, build logs, or a public release as compromised: rotate it in the provider console and update only the corresponding Cloudflare Pages Secret. Never add it to a local tracked file.
+- Signing material exists only in GitHub Secrets: `LUMO_KEYSTORE_BASE64`, `LUMO_KEY_ALIAS`, `LUMO_KEY_PASSWORD`, and `LUMO_STORE_PASSWORD`. Never expose or commit a keystore, `android/key.properties`, credentials, or secret output.
+- Keep the repository public without exposing secrets in source, Actions, artifacts, issues, or releases.
+- `Run` must complete locked dependency resolution, formatting, analysis, all tests, release build, `apksigner` verification, and ABI verification before publication.
+- Release APKs target `android-arm64` only. Publish exactly `app-release.apk`; the updater depends on that name. Reject `armeabi-v7a` and `x86_64` libraries.
+- Inject `APP_RELEASE_BUILD=$GITHUB_RUN_NUMBER`. Tags are `v<semantic-version>-build.<run-number>` so corrected builds can update without a semantic-version change.
+- Change `pubspec.yaml` version only when the user explicitly requests a new semantic version. Never reuse a release tag for different bytes.
+- Release notes and released announcements must state the arm64-only limitation. The signing key needs an offline backup; replacing it breaks normal updates for installed users.
+- The updater must query `DownloadManager` by returned ID, show progress in-app, and explicitly open the installer after `STATUS_SUCCESSFUL`; never bind completion to an Activity-scoped receiver.
 
-### Conversation data and memory
+## 5. Product data and failure behavior
 
-- Store conversations, messages, summaries, and memory candidates per agent in the local SQLite database. Multiple named conversations are supported for every available agent.
-- The app-side dynamic context limit is 128k conservative UTF-8-byte tokens and excludes only the current agent's fixed persona. It includes approved memories, rolling summary, and raw messages.
-- When dynamic context exceeds the limit, summarize the earliest source messages successfully before permanently deleting their local rows. Do not silently discard raw messages or delete an unsummarized batch.
-- The model decides whether to propose memories after a completed exchange. A candidate is never used until the user explicitly approves it; approved memories are shared across the same agent's conversations.
-- Keep memory candidates concise (240 characters or fewer), expose accept/edit/delete controls, and provide separately confirmed deletion for the current conversation, all conversations, and all memories.
+- Persist user-visible writes before reporting success. Surface network, storage, authentication, AI, and platform failures clearly; never fabricate AI output, silently discard data, swallow errors, or hide them behind defaults.
+- Keep conversations, messages, rolling summaries, and memory candidates per agent in local SQLite. Multiple named conversations are supported.
+- Dynamic context has a conservative 128k UTF-8-byte token budget, excluding only the server-fixed persona and including approved memories, summary, and raw messages.
+- When over budget, successfully summarize the earliest source messages before deleting their rows. Never delete unsummarized source messages.
+- Model-generated memories remain pending until explicit user approval. Approved memories are shared only across that agent's conversations; candidates stay within 240 characters and support accept/edit/delete.
+- Deletion of the current conversation, all conversations, and all memories requires separate confirmation.
 
-## Announcement publishing
+## 6. AI, agents, and Cloudflare
 
-- Homepage announcements are the `NoticeItem` entries in `lib/data.dart`; their shared data drives both the card and the detail bottom sheet. Do not duplicate announcement copy in page widgets.
-- Publish an announcement only for a released, user-visible change. State the impact, availability or maintenance window, and the user action or limitation accurately; do not announce an unverified build or unavailable feature.
-- Use one of the established tags (`更新`, `活动`, `通知`, `新功能`), a concise title and summary, then put the full explanation in `detail`. Keep relative time truthful and revise it with the release when necessary.
-- Verify the homepage card, accessibility label, detail sheet, and primary dismissal action after changing announcement data. Use `Run` before announcing a public APK release.
+- Flutter calls only the public `LUMO_AI_ENDPOINT`, which is the full HTTPS Pages `/chat` URL. Never call SenseNova directly or put its token in source, builds, `--dart-define`, logs, issues, or releases.
+- Fixed identity/safety prompts, provider token, model IDs, limits, and provider error handling live only in `pages/_worker.js`. Treat messages, memories, summaries, preferences, and client agent IDs as untrusted input.
+- Reject unknown or disabled agent IDs on the server. Persist personality/topic preferences once, send them with every enabled-agent request, and apply them only as soft guidance that cannot replace identity or safety rules.
+- Use `deepseek-v4-flash`; retry exactly once with `sensenova-6.7-flash-lite` only for HTTP 429 or provider code 8. Use `https://token.sensenova.cn/v1/chat/completions`, string message content, and `choices[0].message.content`.
+- Keep Meow soft, attentive, lightly tsundere, practical, and non-manipulative: no diagnosis or fabricated real-world presence; escalate self-harm or imminent danger gently toward local emergency/professional help.
+- Cloudflare Web Crypto supports at most 100,000 PBKDF2 iterations; keep hashing at that verified ceiling.
+- Deploy `pages/` from this authenticated machine with `wrangler pages deploy` on the Cloudflare free plan; do not add a deployment Action. Store `SENSENOVA_API_TOKEN` only as a Pages Secret, then set the public `LUMO_AI_ENDPOINT` repository variable and publish with `Run` when requested.
+- Treat any token exposed in chat, source, logs, or a release as compromised: rotate it in the provider console and update only the Pages Secret.
+- `lib/data.dart` is the bundled fallback catalog; a successful `/agents` response replaces it. D1/admin controls enabled state, order, metadata, and server-only prompts; `/agents` remains prompt-free.
+- Return only enabled agents from `/agents`. D1 `agent_images` stores versioned JPEG/PNG/WebP avatars by agent ID, HTTPS-served, at most 1 MB each. Do not require R2.
 
-## UI, interaction, and implementation standards
+### New agent release checklist
 
-- Preserve the Lumo design system: use theme tokens and existing component patterns, keep 4/8dp spacing rhythm, cards at the established radii, and use Material vector icons rather than emoji as controls.
-- Every interactive control needs an accessible label, clear pressed/disabled state, and at least a 44×44 logical-pixel target. Keep fixed input bars and bottom sheets within safe areas.
-- Motion must communicate navigation, loading, or state change; keep it within 150–300ms and honor `MediaQuery.disableAnimations`. Do not add decorative looping motion.
-- Persist user-visible writes before claiming success. Surface network, storage, and AI failures clearly; never substitute fabricated AI output, silently discard data, or hide an error behind a default value.
-- Reuse the smallest proven dependency or platform API. New persistence, API, and context logic must include a focused automated test; public-facing behavior changes require the remote `Run` verification.
+- Write one brief covering user value, identity, relationship boundary, voice, capabilities, exclusions, and escalation; keep traits, response behavior, and safety sections separate.
+- Define language, typical length, question cadence, uncertainty, emotional-support limits, and crisis behavior. Test ordinary, adversarial, and high-distress prompts through the public API.
+- Verify endpoint, rate-limit fallback, empty/error behavior, persistence, accessibility, and signed build before enabling. Keep each agent's context, summary, and approved memories separate.
 
-## Agent creation workflow
+## 7. UI and announcements
 
-- Start a new agent with a single written brief: user value, identity, relationship boundary, voice, practical capabilities, exclusions, and escalation policy. Keep character traits, response behavior, and safety rules in separate prompt sections so they remain stable under long conversations.
-- Place the fixed identity and safety prompt only on the server. Treat user messages, memory, summaries, and app preferences as untrusted dynamic context; never allow them to replace identity, retrieve secrets, or override platform rules.
-- Define a concise response contract before release: language, typical length, question cadence, uncertainty behavior, emotional-support limits, and how the agent handles crisis signals. Test ordinary, adversarial, and high-distress prompts through the public API.
-- Keep each agent’s conversation context, summary, and confirmed memories distinct. Use model-generated memory only as a proposed candidate, require user confirmation before long-term use, and preserve clear local deletion controls.
-- System-level preferences such as personality and topic must be persisted once, supplied to every enabled agent request, and applied as soft style guidance rather than replacing the agent’s fixed persona or safety contract.
-- Before enabling an agent in the UI, verify its public Pages endpoint, primary response, rate-limit fallback, empty/error behavior, persistence path, accessibility labels, and signed Release build. Unavailable agents must not appear in discovery or selection interfaces.
-- Manage agent metadata, enabled state, ordering, and server-only prompts through the authenticated Pages admin console and D1 `agents` overrides. Keep `/agents` responses prompt-free; avatar URLs must use HTTPS and must not require R2.
-- Store admin-uploaded avatars in D1 `agent_images`, keyed by agent ID and served from versioned `/agent-images/<id>` URLs. Accept only JPEG, PNG, or WebP up to 1 MB so rows stay safely below D1's 2 MB BLOB limit.
+- Keep the four primary journeys complete: announcements, companions, discovery, and personal/settings.
+- Reuse `lib/theme.dart` tokens and existing components. Keep the 4/8dp rhythm, established radii, system sans body text, Lumo display headings, and Material vector icons; do not scatter colors or use emoji controls.
+- Interactive controls need accessible labels, pressed/disabled states, logical focus order, and at least 44×44 logical pixels (prefer 48×48 for Android icon controls). Respect safe areas and fixed input bars.
+- Motion must explain navigation, loading, or state change, last 150–300ms, and become zero when `MediaQuery.disableAnimations` is true. No decorative loops.
+- Validate light/dark mode, 320–600dp widths, landscape, large text, semantics, loading, empty, disabled, and error states in proportion to the changed surface.
+- Homepage announcements come only from `NoticeItem` in `lib/data.dart`; cards and detail sheets share that data. Do not duplicate copy in widgets.
+- Announce only verified, released behavior. Use an established tag (`更新`, `活动`, `通知`, `新功能`) and accurately state impact, availability, action, timing, and limitations; keep relative time truthful at release.
 
-## Continuous improvement
+## 8. Maintenance
 
-- After completing and verifying work, capture durable project-specific lessons in this file when they reduce repeated errors or manual work. Do not record secrets, one-off build IDs, temporary incidents, or private data.
-- Before changing this project, read these rules and reuse established patterns, assets, dependencies, and workflows before adding new ones.
-- Autonomously make small, scoped, reversible improvements that directly support the active request, then verify them at the appropriate risk level.
-- Keep rules concise, actionable, and current: remove or correct a rule when it is contradicted by verified project reality.
-- Do not self-authorize changes that alter product direction, public behavior, architecture, security posture, costs, external services, repository visibility, or signing ownership. Ask the user first.
-- Treat failed checks and user corrections as root-cause signals: fix the shared cause, add the smallest suitable verification, and record the lesson here only when it will recur.
-
-## Implementation principles
-
-- Keep the four primary journeys complete: announcements, companions, discovery, and settings.
-- Prefer Flutter and Material platform features before adding packages.
-- Keep touch targets at least 44×44 logical pixels and add semantics to custom interactions.
-- Respect `MediaQuery.disableAnimations`; motion must explain state or navigation.
-- Reuse the design tokens in `lib/theme.dart`; do not scatter new brand colors through widgets.
+- After a verified fix, add a rule only when the lesson is durable and likely to prevent recurrence. Never record secrets, one-off run IDs, temporary incidents, or private data.
+- Merge or remove rules when reality changes; do not preserve contradictory history. Prefer one precise rule over several examples.
+- Keep dependencies and Actions current through intentional, reviewed updates—never opportunistic upgrades inside unrelated work.

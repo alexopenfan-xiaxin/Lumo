@@ -1,0 +1,32 @@
+name: Dependencies
+run-name: Resolve dependencies for ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: dependencies-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Upload lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: lumo-pubspec-lock
+          path: pubspec.lock
+          if-no-files-found: error
+          retention-days: 3

@@ -5,7 +5,8 @@ import 'data.dart';
 
 class AgentClient {
   const AgentClient({String? endpoint})
-      : _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT');
+      : _endpoint =
+            endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT');
 
   final String _endpoint;
 
@@ -14,9 +15,11 @@ class AgentClient {
     final client = HttpClient();
     try {
       final endpoint = Uri.parse(_endpoint);
-      final request = await client.getUrl(endpoint.replace(path: '/agents', query: null));
+      final request =
+          await client.getUrl(endpoint.replace(path: '/agents', query: null));
       final response = await request.close();
-      final decoded = jsonDecode(await utf8.decoder.bind(response).join()) as Map<String, dynamic>;
+      final decoded = jsonDecode(await utf8.decoder.bind(response).join())
+          as Map<String, dynamic>;
       if (response.statusCode != HttpStatus.ok || decoded['agents'] is! List) {
         throw const AgentCatalogException('智能体列表暂时不可用。');
       }

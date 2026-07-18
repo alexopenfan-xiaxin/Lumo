@@ -5,7 +5,11 @@ import '../widgets.dart';
 import 'chat_page.dart';
 
 class ExplorePage extends StatelessWidget {
-  const ExplorePage({required this.companions, required this.catalogError, required this.onRetry, super.key});
+  const ExplorePage(
+      {required this.companions,
+      required this.catalogError,
+      required this.onRetry,
+      super.key});
 
   final List<Companion> companions;
   final String? catalogError;
@@ -14,7 +18,8 @@ class ExplorePage extends StatelessWidget {
   void _openChat(BuildContext context, Companion companion) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ChatPage(companion: companion, heroTag: 'explore-${companion.id}'),
+        builder: (_) =>
+            ChatPage(companion: companion, heroTag: 'explore-${companion.id}'),
       ),
     );
   }
@@ -36,23 +41,30 @@ class ExplorePage extends StatelessWidget {
                     width: 190,
                     child: AspectRatio(
                       aspectRatio: 3 / 4,
-                      child: Hero(tag: 'explore-${companion.id}', child: _CompanionCover(companion: companion)),
+                      child: Hero(
+                          tag: 'explore-${companion.id}',
+                          child: _CompanionCover(companion: companion)),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    Expanded(child: Text(companion.name, style: Theme.of(context).textTheme.headlineMedium)),
+                    Expanded(
+                        child: Text(companion.name,
+                            style: Theme.of(context).textTheme.headlineMedium)),
                     _CoverLabel(label: companion.isAvailable ? '在线' : '未开放'),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(categoryLabel(companion.category), style: Theme.of(context).textTheme.bodySmall),
+                Text(categoryLabel(companion.category),
+                    style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 12),
-                Text(companion.tagline, style: Theme.of(context).textTheme.bodyLarge),
+                Text(companion.tagline,
+                    style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: 10),
-                Text(companion.people, style: Theme.of(context).textTheme.bodySmall),
+                Text(companion.people,
+                    style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -63,7 +75,9 @@ class ExplorePage extends StatelessWidget {
                             _openChat(context, companion);
                           }
                         : null,
-                    child: Text(companion.isAvailable ? '和${companion.name}聊聊' : '暂未开放'),
+                    child: Text(companion.isAvailable
+                        ? '和${companion.name}聊聊'
+                        : '暂未开放'),
                   ),
                 ),
               ],
@@ -80,7 +94,8 @@ class ExplorePage extends StatelessWidget {
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('explore-scroll'),
-        padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
+        padding:
+            EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
           const LumoPageTitle(title: '探索', subtitle: '认识这里的陪伴者'),
           if (catalogError != null) ...[
@@ -94,7 +109,8 @@ class ExplorePage extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final columns = constraints.maxWidth >= 340 ? 2 : 1;
-                final cardWidth = (constraints.maxWidth - (columns - 1) * 12) / columns;
+                final cardWidth =
+                    (constraints.maxWidth - (columns - 1) * 12) / columns;
                 return Wrap(
                   spacing: 12,
                   runSpacing: 24,
@@ -121,7 +137,8 @@ class ExplorePage extends StatelessWidget {
 }
 
 class _ExploreCard extends StatelessWidget {
-  const _ExploreCard({required this.companion, required this.onDetails, required this.onChat});
+  const _ExploreCard(
+      {required this.companion, required this.onDetails, required this.onChat});
 
   final Companion companion;
   final VoidCallback onDetails;
@@ -144,8 +161,16 @@ class _ExploreCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       _CompanionCover(companion: companion),
-                      Positioned(left: 10, top: 10, child: _CoverLabel(label: categoryLabel(companion.category))),
-                      Positioned(right: 10, top: 10, child: _CoverLabel(label: companion.isAvailable ? '在线' : '未开放')),
+                      Positioned(
+                          left: 10,
+                          top: 10,
+                          child: _CoverLabel(
+                              label: categoryLabel(companion.category))),
+                      Positioned(
+                          right: 10,
+                          top: 10,
+                          child: _CoverLabel(
+                              label: companion.isAvailable ? '在线' : '未开放')),
                     ],
                   ),
                 ),
@@ -155,7 +180,9 @@ class _ExploreCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: Text(companion.name, style: Theme.of(context).textTheme.titleLarge)),
+              Expanded(
+                  child: Text(companion.name,
+                      style: Theme.of(context).textTheme.titleLarge)),
               IconButton(
                 tooltip: '和${companion.name}聊聊',
                 onPressed: companion.isAvailable ? onChat : null,
@@ -163,7 +190,10 @@ class _ExploreCard extends StatelessWidget {
               ),
             ],
           ),
-          Text(companion.tagline, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+          Text(companion.tagline,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall),
         ],
       );
 }
@@ -180,7 +210,10 @@ class _CompanionCover extends StatelessWidget {
       child: Center(child: CompanionAvatar(companion: companion, size: 88)),
     );
     final image = companion.avatarAsset != null
-        ? Image.asset(companion.avatarAsset!, fit: BoxFit.cover, alignment: _alignment(companion.id), excludeFromSemantics: true)
+        ? Image.asset(companion.avatarAsset!,
+            fit: BoxFit.cover,
+            alignment: _alignment(companion.id),
+            excludeFromSemantics: true)
         : companion.avatarUrl != null
             ? Image.network(
                 companion.avatarUrl!,
@@ -213,10 +246,16 @@ class _CoverLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.58), borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(999)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+          child: Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
         ),
       );
 }
@@ -229,7 +268,9 @@ class _ExploreEmpty extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 72),
         child: Column(
           children: [
-            Icon(Icons.explore_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(Icons.explore_outlined,
+                size: 56,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 18),
             Text('暂无新的陪伴者', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),

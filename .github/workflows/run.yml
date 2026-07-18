@@ -1,7 +1,17 @@
 name: Run
+run-name: Release ${{ github.ref_name }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
+    inputs:
+      release_notes:
+        description: User-visible changes in this build (Markdown supported)
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -11,7 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Require main branch
+        run: test "$GITHUB_REF" = 'refs/heads/main' || { echo 'Run releases only from main.'; exit 1; }
+      - uses: ./.github/actions/project-quality
+      - name: Read app version
+        run: |
+          version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
+          test -n "$version"
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
       - name: Prepare Android release signing
         env:
           LUMO_KEYSTORE_BASE64: ${{ secrets.LUMO_KEYSTORE_BASE64 }}
@@ -19,42 +37,51 @@ jobs:
           LUMO_KEY_PASSWORD: ${{ secrets.LUMO_KEY_PASSWORD }}
           LUMO_STORE_PASSWORD: ${{ secrets.LUMO_STORE_PASSWORD }}
         run: |
-          test -n "$LUMO_KEYSTORE_BASE64" || { echo "Missing release signing secrets."; exit 1; }
+          for name in LUMO_KEYSTORE_BASE64 LUMO_KEY_ALIAS LUMO_KEY_PASSWORD LUMO_STORE_PASSWORD; do
+            test -n "${!name}" || { echo "Missing release signing secret: $name"; exit 1; }
+          done
+          umask 077
           printf '%s' "$LUMO_KEYSTORE_BASE64" | base64 --decode > android/app/lumo-release.jks
           printf 'storeFile=lumo-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$LUMO_STORE_PASSWORD" "$LUMO_KEY_ALIAS" "$LUMO_KEY_PASSWORD" > android/key.properties
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
-      - name: Build release APK
+      - name: Build arm64 release APK
         env:
           LUMO_AI_ENDPOINT: ${{ vars.LUMO_AI_ENDPOINT }}
         run: |
-          version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
-          flutter build apk --release --target-platform android-arm64 --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" --dart-define=APP_VERSION="$version" --dart-define=APP_RELEASE_BUILD="$GITHUB_RUN_NUMBER"
-      - name: Verify release signature
+          test -n "$LUMO_AI_ENDPOINT" || { echo "Missing LUMO_AI_ENDPOINT repository variable."; exit 1; }
+          flutter build apk --release --target-platform android-arm64 \
+            --dart-define=LUMO_AI_ENDPOINT="$LUMO_AI_ENDPOINT" \
+            --dart-define=APP_VERSION="$APP_VERSION" \
+            --dart-define=APP_RELEASE_BUILD="$GITHUB_RUN_NUMBER"
+      - name: Remove signing files
+        if: always()
+        run: rm -f android/app/lumo-release.jks android/key.properties
+      - name: Verify signature and ABI
         run: |
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          test -n "$apksigner"
           "$apksigner" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
           unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -q 'lib/arm64-v8a/'
           ! unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -Eq 'lib/(armeabi-v7a|x86_64)/'
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
-          version="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
-          tag="v${version}-build.${GITHUB_RUN_NUMBER}"
+          tag="v${APP_VERSION}-build.${GITHUB_RUN_NUMBER}"
           apk="build/app/outputs/flutter-apk/app-release.apk"
+          notes="$RUNNER_TEMP/release-notes.md"
+          printf '%s\n\n%s\n' "$RELEASE_NOTES" '此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。' > "$notes"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" "$apk" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$tag" --title "Lumo ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" --notes-file "$notes" --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${version} (build ${GITHUB_RUN_NUMBER})" --notes $'修复应用内更新：下载期间现在会显示实时进度，完成后主动打开系统安装器，不再依赖容易丢失的下载完成广播。\n\n此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。'
+            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" --notes-file "$notes"
           fi
-      - uses: actions/upload-artifact@v4
+      - name: Upload release APK
+        uses: actions/upload-artifact@v7
         with:
           name: lumo-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

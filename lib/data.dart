@@ -51,12 +51,15 @@ class Companion {
         'life' => CompanionCategory.life,
         _ => CompanionCategory.listener,
       },
-      color: Color(int.parse((json['color']! as String).substring(1), radix: 16) | 0xFF000000),
+      color: Color(
+          int.parse((json['color']! as String).substring(1), radix: 16) |
+              0xFF000000),
       people: json['people']! as String,
       lastMessage: json['lastMessage']! as String,
       lastTime: '现在',
       openingMessage: json['openingMessage']! as String,
-      avatarAsset: avatarUrl?.isNotEmpty == true ? null : _builtInAvatarAssets[id],
+      avatarAsset:
+          avatarUrl?.isNotEmpty == true ? null : _builtInAvatarAssets[id],
       avatarUrl: avatarUrl?.isNotEmpty == true ? avatarUrl : null,
       isAvailable: json['enabled'] == true,
     );
@@ -169,7 +172,8 @@ const notices = <NoticeItem>[
     tag: '更新',
     title: '1.3.0：界面焕新与 arm64 版本',
     description: '全新发光团子开屏登场，五个主要界面也更统一、更清晰。',
-    detail: 'Lumo 现在会由发光团子陪你一起醒来：它从微光中成型、睁眼、呼吸，并在准备完成时眨眼送你进入首页；等待较久时，它会轻轻摇晃告诉你“我在呢”。首页、智能体、探索、聊天和设置也已完成系统级界面焕新，并优化深色模式、横屏、大字体与交互反馈。Release APK 仍仅支持 64 位 ARM Android 设备；32 位设备无法安装。可在“设置 → 关于 Lumo”检查更新。',
+    detail:
+        'Lumo 现在会由发光团子陪你一起醒来：它从微光中成型、睁眼、呼吸，并在准备完成时眨眼送你进入首页；等待较久时，它会轻轻摇晃告诉你“我在呢”。首页、智能体、探索、聊天和设置也已完成系统级界面焕新，并优化深色模式、横屏、大字体与交互反馈。Release APK 仍仅支持 64 位 ARM Android 设备；32 位设备无法安装。可在“设置 → 关于 Lumo”检查更新。',
     time: '刚刚',
     color: LumoColors.clay,
     icon: Icons.auto_awesome_rounded,
@@ -177,9 +181,9 @@ const notices = <NoticeItem>[
 ];
 
 String categoryLabel(CompanionCategory category) => switch (category) {
-  CompanionCategory.all => '全部',
-  CompanionCategory.listener => '情感倾听',
-  CompanionCategory.meditation => '冥想引导',
-  CompanionCategory.counselor => '心理咨询',
-  CompanionCategory.life => '生活陪伴',
-};
+      CompanionCategory.all => '全部',
+      CompanionCategory.listener => '情感倾听',
+      CompanionCategory.meditation => '冥想引导',
+      CompanionCategory.counselor => '心理咨询',
+      CompanionCategory.life => '生活陪伴',
+    };

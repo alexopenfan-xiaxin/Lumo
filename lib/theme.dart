@@ -29,7 +29,8 @@ ThemeData buildLumoTheme(Brightness brightness) {
     secondary: isDark ? const Color(0xFF8DB0A6) : LumoColors.eucalyptus,
     tertiary: isDark ? const Color(0xFF9AB6C7) : LumoColors.fogBlue,
     surface: isDark ? LumoColors.darkPaper : LumoColors.paper,
-    surfaceContainerHighest: isDark ? LumoColors.darkRaised : const Color(0xFFF2EFEC),
+    surfaceContainerHighest:
+        isDark ? LumoColors.darkRaised : const Color(0xFFF2EFEC),
     onSurfaceVariant: isDark ? const Color(0xFFBDB3AA) : LumoColors.muted,
     error: isDark ? const Color(0xFFE68A80) : const Color(0xFFBB6258),
   );
@@ -43,39 +44,47 @@ ThemeData buildLumoTheme(Brightness brightness) {
     colorScheme: scheme,
     scaffoldBackgroundColor: isDark ? LumoColors.darkCanvas : LumoColors.canvas,
     fontFamilyFallback: const ['Noto Sans CJK SC', 'sans-serif'],
-    textTheme: ThemeData(brightness: brightness).textTheme.apply(
-      bodyColor: foreground,
-      displayColor: foreground,
-    ).copyWith(
-      displaySmall: TextStyle(
-        fontFamily: 'LumoDisplay',
-        fontSize: 32,
-        height: 1.2,
-        color: foreground,
-      ),
-      headlineMedium: TextStyle(
-        fontFamily: 'LumoDisplay',
-        fontSize: 26,
-        height: 1.25,
-        color: foreground,
-      ),
-      titleLarge: TextStyle(
-        fontFamily: 'LumoDisplay',
-        fontSize: 22,
-        height: 1.3,
-        color: foreground,
-      ),
-      titleMedium: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: foreground,
-      ),
-      titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.1, color: foreground),
-      bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: foreground),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.55, color: foreground),
-      bodySmall: TextStyle(fontSize: 12, height: 1.45, color: muted),
-      labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-    ),
+    textTheme: ThemeData(brightness: brightness)
+        .textTheme
+        .apply(
+          bodyColor: foreground,
+          displayColor: foreground,
+        )
+        .copyWith(
+          displaySmall: TextStyle(
+            fontFamily: 'LumoDisplay',
+            fontSize: 32,
+            height: 1.2,
+            color: foreground,
+          ),
+          headlineMedium: TextStyle(
+            fontFamily: 'LumoDisplay',
+            fontSize: 26,
+            height: 1.25,
+            color: foreground,
+          ),
+          titleLarge: TextStyle(
+            fontFamily: 'LumoDisplay',
+            fontSize: 22,
+            height: 1.3,
+            color: foreground,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: foreground,
+          ),
+          titleSmall: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
+              color: foreground),
+          bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: foreground),
+          bodyMedium: TextStyle(fontSize: 14, height: 1.55, color: foreground),
+          bodySmall: TextStyle(fontSize: 12, height: 1.45, color: muted),
+          labelLarge:
+              const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
     cardTheme: CardThemeData(
       color: scheme.surface,
       elevation: 0,
@@ -113,7 +122,8 @@ ThemeData buildLumoTheme(Brightness brightness) {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
-    iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
+    iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
     listTileTheme: ListTileThemeData(
       minTileHeight: 64,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -143,12 +153,15 @@ ThemeData buildLumoTheme(Brightness brightness) {
       disabledColor: border.withValues(alpha: 0.55),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-      labelStyle: TextStyle(color: scheme.primary, fontSize: 12, fontWeight: FontWeight.w700),
+      labelStyle: TextStyle(
+          color: scheme.primary, fontSize: 12, fontWeight: FontWeight.w700),
       padding: const EdgeInsets.symmetric(horizontal: 4),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? scheme.onPrimary : muted),
-      trackColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? scheme.primary : border),
+      thumbColor: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected) ? scheme.onPrimary : muted),
+      trackColor: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected) ? scheme.primary : border),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
@@ -166,7 +179,8 @@ ThemeData buildLumoTheme(Brightness brightness) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: foreground,
-      contentTextStyle: TextStyle(color: isDark ? LumoColors.ink : Colors.white),
+      contentTextStyle:
+          TextStyle(color: isDark ? LumoColors.ink : Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );

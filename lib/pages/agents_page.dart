@@ -8,7 +8,11 @@ import '../widgets.dart';
 import 'chat_page.dart';
 
 class AgentsPage extends StatefulWidget {
-  const AgentsPage({required this.companions, required this.catalogError, required this.onRetry, super.key});
+  const AgentsPage(
+      {required this.companions,
+      required this.catalogError,
+      required this.onRetry,
+      super.key});
 
   final List<Companion> companions;
   final String? catalogError;
@@ -38,7 +42,8 @@ class _AgentsPageState extends State<AgentsPage> {
     final entries = await Future.wait(
       widget.companions.map((companion) async {
         final conversation = await _store.latestConversation(companion.id);
-        if (conversation == null) return MapEntry(companion.id, const _AgentPreview());
+        if (conversation == null)
+          return MapEntry(companion.id, const _AgentPreview());
         final messages = await _store.messages(conversation.id);
         return MapEntry(
           companion.id,
@@ -49,7 +54,9 @@ class _AgentsPageState extends State<AgentsPage> {
         );
       }),
     );
-    if (mounted) setState(() => _previews = Map<String, _AgentPreview>.fromEntries(entries));
+    if (mounted)
+      setState(
+          () => _previews = Map<String, _AgentPreview>.fromEntries(entries));
   }
 
   Future<void> _openChat(Companion companion, {bool createNew = false}) async {
@@ -71,27 +78,33 @@ class _AgentsPageState extends State<AgentsPage> {
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('agents-scroll'),
-        padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
+        padding:
+            EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
           const LumoPageTitle(title: '智能体', subtitle: '选择一位陪伴者延续对话'),
           if (widget.catalogError != null) ...[
             const SizedBox(height: 16),
-            AgentCatalogNotice(message: widget.catalogError!, onRetry: widget.onRetry),
+            AgentCatalogNotice(
+                message: widget.catalogError!, onRetry: widget.onRetry),
           ],
           const SizedBox(height: 28),
           if (widget.companions.isNotEmpty) ...[
-            LumoSectionHeader(title: '我的陪伴', caption: '${widget.companions.length} 位陪伴者'),
+            LumoSectionHeader(
+                title: '我的陪伴', caption: '${widget.companions.length} 位陪伴者'),
             const SizedBox(height: 12),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for (var index = 0; index < widget.companions.length; index++) ...[
+                  for (var index = 0;
+                      index < widget.companions.length;
+                      index++) ...[
                     _AgentRow(
                       companion: widget.companions[index],
                       preview: _previews[widget.companions[index].id],
                       onTap: () => _openChat(widget.companions[index]),
-                      onNewChat: () => _openChat(widget.companions[index], createNew: true),
+                      onNewChat: () =>
+                          _openChat(widget.companions[index], createNew: true),
                     ),
                     if (index != widget.companions.length - 1)
                       const Divider(height: 1, indent: 98, endIndent: 20),
@@ -108,7 +121,11 @@ class _AgentsPageState extends State<AgentsPage> {
 }
 
 class _AgentRow extends StatelessWidget {
-  const _AgentRow({required this.companion, required this.preview, required this.onTap, required this.onNewChat});
+  const _AgentRow(
+      {required this.companion,
+      required this.preview,
+      required this.onTap,
+      required this.onNewChat});
 
   final Companion companion;
   final _AgentPreview? preview;
@@ -125,7 +142,10 @@ class _AgentRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
         child: Row(
           children: [
-            CompanionAvatar(companion: companion, size: 64, heroTag: 'agents-${companion.id}'),
+            CompanionAvatar(
+                companion: companion,
+                size: 64,
+                heroTag: 'agents-${companion.id}'),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -133,20 +153,28 @@ class _AgentRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(companion.name, style: Theme.of(context).textTheme.titleLarge)),
+                      Expanded(
+                          child: Text(companion.name,
+                              style: Theme.of(context).textTheme.titleLarge)),
                       Text(
                         available ? '在线' : '未开放',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: available ? Theme.of(context).colorScheme.secondary : null,
-                        ),
+                              color: available
+                                  ? Theme.of(context).colorScheme.secondary
+                                  : null,
+                            ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium),
                   if (preview?.updatedAt != null) ...[
                     const SizedBox(height: 4),
-                    Text(_timeLabel(preview!.updatedAt!), style: Theme.of(context).textTheme.bodySmall),
+                    Text(_timeLabel(preview!.updatedAt!),
+                        style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ],
               ),
@@ -165,7 +193,9 @@ class _AgentRow extends StatelessWidget {
   String _timeLabel(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
-    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '${date.month}/${date.day}';
@@ -180,7 +210,9 @@ class _EmptyAgents extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 72),
         child: Column(
           children: [
-            Icon(Icons.person_search_outlined, size: 56, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(Icons.person_search_outlined,
+                size: 56,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 18),
             Text('暂无陪伴者', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),

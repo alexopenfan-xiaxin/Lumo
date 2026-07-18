@@ -5,7 +5,8 @@ import 'chat_store.dart';
 const maxDynamicContextTokens = 128000;
 
 class ContextWindow {
-  const ContextWindow({required this.messages, required this.removedMessageIds});
+  const ContextWindow(
+      {required this.messages, required this.removedMessageIds});
 
   final List<StoredMessage> messages;
   final List<String> removedMessageIds;
@@ -34,5 +35,7 @@ ContextWindow limitContext({
       usedTokens += messageTokens;
     }
   }
-  return ContextWindow(messages: kept.reversed.toList(), removedMessageIds: removed.reversed.toList());
+  return ContextWindow(
+      messages: kept.reversed.toList(),
+      removedMessageIds: removed.reversed.toList());
 }

@@ -53,17 +53,33 @@ class _LumoShellState extends State<LumoShell> {
   }
 
   static const _destinations = [
-    _DockDestination(label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
-    _DockDestination(label: '智能体', icon: Icons.people_outline_rounded, selectedIcon: Icons.people_rounded),
-    _DockDestination(label: '探索', icon: Icons.explore_outlined, selectedIcon: Icons.explore_rounded),
-    _DockDestination(label: '个人', icon: Icons.person_outline_rounded, selectedIcon: Icons.person_rounded),
+    _DockDestination(
+        label: '首页',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_rounded),
+    _DockDestination(
+        label: '智能体',
+        icon: Icons.people_outline_rounded,
+        selectedIcon: Icons.people_rounded),
+    _DockDestination(
+        label: '探索',
+        icon: Icons.explore_outlined,
+        selectedIcon: Icons.explore_rounded),
+    _DockDestination(
+        label: '个人',
+        icon: Icons.person_outline_rounded,
+        selectedIcon: Icons.person_rounded),
   ];
 
   void _select(int index) {
     if (index != _index) setState(() => _index = index);
   }
 
-  int _indexAt(double position, double width) => (position / (width / _destinations.length)).floor().clamp(0, _destinations.length - 1).toInt();
+  int _indexAt(double position, double width) =>
+      (position / (width / _destinations.length))
+          .floor()
+          .clamp(0, _destinations.length - 1)
+          .toInt();
 
   double _dockPosition(Offset globalPosition) {
     final box = _dockKey.currentContext!.findRenderObject()! as RenderBox;
@@ -72,14 +88,22 @@ class _LumoShellState extends State<LumoShell> {
 
   @override
   Widget build(BuildContext context) {
-    final duration = MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 240);
+    final duration = MediaQuery.of(context).disableAnimations
+        ? Duration.zero
+        : const Duration(milliseconds: 240);
     return Scaffold(
       body: IndexedStack(
         index: _index,
         children: [
           const HomePage(),
-          AgentsPage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
-          ExplorePage(companions: _companions, catalogError: _catalogError, onRetry: _loadAgents),
+          AgentsPage(
+              companions: _companions,
+              catalogError: _catalogError,
+              onRetry: _loadAgents),
+          ExplorePage(
+              companions: _companions,
+              catalogError: _catalogError,
+              onRetry: _loadAgents),
           ProfilePage(
             themeMode: widget.themeMode,
             onThemeModeChanged: widget.onThemeModeChanged,
@@ -94,9 +118,11 @@ class _LumoShellState extends State<LumoShell> {
           duration: duration,
           onSelected: _select,
           dragKey: _dockKey,
-          onDragStart: (position, width) => _draggingSelection = _indexAt(_dockPosition(position), width) == _index,
+          onDragStart: (position, width) => _draggingSelection =
+              _indexAt(_dockPosition(position), width) == _index,
           onDragUpdate: (position, width) {
-            if (_draggingSelection) _select(_indexAt(_dockPosition(position), width));
+            if (_draggingSelection)
+              _select(_indexAt(_dockPosition(position), width));
           },
           onDragEnd: () => _draggingSelection = false,
         ),
@@ -139,8 +165,10 @@ class _FloatingDock extends StatelessWidget {
           child: Listener(
             key: dragKey,
             behavior: HitTestBehavior.opaque,
-            onPointerDown: (event) => onDragStart(event.position, constraints.maxWidth),
-            onPointerMove: (event) => onDragUpdate(event.position, constraints.maxWidth),
+            onPointerDown: (event) =>
+                onDragStart(event.position, constraints.maxWidth),
+            onPointerMove: (event) =>
+                onDragUpdate(event.position, constraints.maxWidth),
             onPointerUp: (_) => onDragEnd(),
             onPointerCancel: (_) => onDragEnd(),
             child: DecoratedBox(
@@ -170,7 +198,11 @@ class _FloatingDock extends StatelessWidget {
 }
 
 class _DockItem extends StatelessWidget {
-  const _DockItem({required this.destination, required this.selected, required this.duration, required this.onTap});
+  const _DockItem(
+      {required this.destination,
+      required this.selected,
+      required this.duration,
+      required this.onTap});
 
   final _DockDestination destination;
   final bool selected;
@@ -180,7 +212,9 @@ class _DockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
     return Semantics(
       key: ValueKey('dock-${destination.label}'),
       label: destination.label,
@@ -191,7 +225,11 @@ class _DockItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _DockIcon(destination: destination, selected: selected, color: color, duration: duration),
+            _DockIcon(
+                destination: destination,
+                selected: selected,
+                color: color,
+                duration: duration),
             const SizedBox(height: 2),
             AnimatedDefaultTextStyle(
               duration: duration,
@@ -211,7 +249,11 @@ class _DockItem extends StatelessWidget {
 }
 
 class _DockIcon extends StatelessWidget {
-  const _DockIcon({required this.destination, required this.selected, required this.color, required this.duration});
+  const _DockIcon(
+      {required this.destination,
+      required this.selected,
+      required this.color,
+      required this.duration});
 
   final _DockDestination destination;
   final bool selected;
@@ -223,12 +265,15 @@ class _DockIcon extends StatelessWidget {
         duration: duration,
         curve: Curves.easeOutCubic,
         tween: ColorTween(end: color),
-        builder: (context, value, child) => Icon(selected ? destination.selectedIcon : destination.icon, color: value),
+        builder: (context, value, child) => Icon(
+            selected ? destination.selectedIcon : destination.icon,
+            color: value),
       );
 }
 
 class _DockDestination {
-  const _DockDestination({required this.label, required this.icon, required this.selectedIcon});
+  const _DockDestination(
+      {required this.label, required this.icon, required this.selectedIcon});
 
   final String label;
   final IconData icon;

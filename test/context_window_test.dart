@@ -15,7 +15,8 @@ void main() {
     final oldest = message('oldest', List.filled(70000, 'a').join());
     final newest = message('newest', List.filled(70000, 'b').join());
 
-    final window = limitContext(messages: [oldest, newest], summary: '', memories: const []);
+    final window = limitContext(
+        messages: [oldest, newest], summary: '', memories: const []);
 
     expect(window.removedMessageIds, ['oldest']);
     expect(window.messages.map((item) => item.id), ['newest']);
@@ -26,7 +27,12 @@ void main() {
       messages: [message('message', List.filled(127000, 'a').join())],
       summary: List.filled(800, 's').join(),
       memories: [
-        MemoryEntry(id: 'memory', agentId: 'meow', content: List.filled(800, 'm').join(), status: MemoryStatus.approved, createdAt: 0),
+        MemoryEntry(
+            id: 'memory',
+            agentId: 'meow',
+            content: List.filled(800, 'm').join(),
+            status: MemoryStatus.approved,
+            createdAt: 0),
       ],
     );
 
