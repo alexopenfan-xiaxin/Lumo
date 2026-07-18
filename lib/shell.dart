@@ -108,13 +108,13 @@ class _FloatingDock extends StatelessWidget {
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
-          child: GestureDetector(
+          child: Listener(
             key: dragKey,
             behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (details) => onDragStart(details.globalPosition, constraints.maxWidth),
-            onHorizontalDragUpdate: (details) => onDragUpdate(details.globalPosition, constraints.maxWidth),
-            onHorizontalDragEnd: (_) => onDragEnd(),
-            onHorizontalDragCancel: onDragEnd,
+            onPointerDown: (event) => onDragStart(event.position, constraints.maxWidth),
+            onPointerMove: (event) => onDragUpdate(event.position, constraints.maxWidth),
+            onPointerUp: (_) => onDragEnd(),
+            onPointerCancel: (_) => onDragEnd(),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border.all(color: theme.dividerColor),
