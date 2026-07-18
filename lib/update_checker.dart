@@ -65,9 +65,10 @@ class UpdateChecker {
 
   Future<File> download(
     Uri url,
-    void Function(int received, int total) onProgress,
-  ) async {
-    final directory = Directory(await updateDirectory());
+    void Function(int received, int total) onProgress, {
+    Directory? destination,
+  }) async {
+    final directory = destination ?? Directory(await updateDirectory());
     await directory.create(recursive: true);
     final apk = File(
       '${directory.path}${Platform.pathSeparator}lumo-update.apk',
