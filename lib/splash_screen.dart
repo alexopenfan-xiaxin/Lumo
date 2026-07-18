@@ -94,7 +94,7 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.light.copyWith(
       statusBarColor: Colors.transparent,
-      navigationBarColor: const Color(0xFF1A1A2E),
+      systemNavigationBarColor: const Color(0xFF1A1A2E),
     ),
     child: Semantics(
       container: true,

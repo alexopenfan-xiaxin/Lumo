@@ -35,7 +35,7 @@ class _LumoAppState extends State<LumoApp> {
     home: AnnotatedRegion<SystemUiOverlayStyle>(
       value: (_themeMode == ThemeMode.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
         statusBarColor: Colors.transparent,
-        navigationBarColor: _themeMode == ThemeMode.dark ? const Color(0xFF171513) : const Color(0xFFF8F5F0),
+        systemNavigationBarColor: _themeMode == ThemeMode.dark ? const Color(0xFF171513) : const Color(0xFFF8F5F0),
       ),
       child: Stack(
         children: [
