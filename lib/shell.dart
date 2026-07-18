@@ -21,18 +21,24 @@ class LumoShell extends StatefulWidget {
 
 class _LumoShellState extends State<LumoShell> {
   int _index = 0;
+  bool _draggingSelection = false;
 
   static const _destinations = [
-    (label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
-    (label: '智能体', icon: Icons.people_outline_rounded, selectedIcon: Icons.people_rounded),
-    (label: '探索', icon: Icons.explore_outlined, selectedIcon: Icons.explore_rounded),
-    (label: '设置', icon: Icons.tune_outlined, selectedIcon: Icons.tune_rounded),
+    _DockDestination(label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
+    _DockDestination(label: '智能体', icon: Icons.people_outline_rounded, selectedIcon: Icons.people_rounded),
+    _DockDestination(label: '探索', icon: Icons.explore_outlined, selectedIcon: Icons.explore_rounded),
+    _DockDestination(label: '设置', icon: Icons.tune_outlined, selectedIcon: Icons.tune_rounded),
   ];
+
+  void _select(int index) {
+    if (index != _index) setState(() => _index = index);
+  }
+
+  int _indexAt(double position, double width) => (position / (width / _destinations.length)).floor().clamp(0, _destinations.length - 1).toInt();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final duration = MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 200);
+    final duration = MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 600);
     return Scaffold(
       body: IndexedStack(
         index: _index,
@@ -48,20 +54,95 @@ class _LumoShellState extends State<LumoShell> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: theme.dividerColor),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8))],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              children: [
-                for (var index = 0; index < _destinations.length; index++)
-                  Expanded(child: _DockItem(destination: _destinations[index], selected: index == _index, duration: duration, onTap: () => setState(() => _index = index))),
-              ],
+        child: _FloatingDock(
+          destinations: _destinations,
+          selectedIndex: _index,
+          duration: duration,
+          onSelected: _select,
+          onDragStart: (position, width) => _draggingSelection = _indexAt(position, width) == _index,
+          onDragUpdate: (position, width) {
+            if (_draggingSelection) _select(_indexAt(position, width));
+          },
+          onDragEnd: () => _draggingSelection = false,
+        ),
+      ),
+    );
+  }
+}
+
+class _FloatingDock extends StatelessWidget {
+  const _FloatingDock({
+    required this.destinations,
+    required this.selectedIndex,
+    required this.duration,
+    required this.onSelected,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  final List<_DockDestination> destinations;
+  final int selectedIndex;
+  final Duration duration;
+  final ValueChanged<int> onSelected;
+  final void Function(double position, double width) onDragStart;
+  final void Function(double position, double width) onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 62,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Material(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          clipBehavior: Clip.antiAlias,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: (details) => onDragStart(details.localPosition.dx, constraints.maxWidth),
+            onHorizontalDragUpdate: (details) => onDragUpdate(details.localPosition.dx, constraints.maxWidth),
+            onHorizontalDragEnd: (_) => onDragEnd(),
+            onHorizontalDragCancel: onDragEnd,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: theme.dividerColor),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8))],
+              ),
+              child: Stack(
+                children: [
+                  AnimatedAlign(
+                    duration: duration,
+                    curve: Curves.elasticOut,
+                    alignment: Alignment(-1 + (2 * selectedIndex / (destinations.length - 1)), 0),
+                    child: SizedBox(
+                      width: constraints.maxWidth / destinations.length,
+                      height: 54,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      for (var index = 0; index < destinations.length; index++)
+                        Expanded(
+                          child: _DockItem(
+                            destination: destinations[index],
+                            selected: index == selectedIndex,
+                            duration: duration,
+                            onTap: () => onSelected(index),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -73,7 +154,7 @@ class _LumoShellState extends State<LumoShell> {
 class _DockItem extends StatelessWidget {
   const _DockItem({required this.destination, required this.selected, required this.duration, required this.onTap});
 
-  final ({String label, IconData icon, IconData selectedIcon}) destination;
+  final _DockDestination destination;
   final bool selected;
   final Duration duration;
   final VoidCallback onTap;
@@ -81,31 +162,53 @@ class _DockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
     return Semantics(
       key: ValueKey('dock-${destination.label}'),
       label: destination.label,
       button: true,
       selected: selected,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: duration,
-          height: 56,
-          decoration: BoxDecoration(color: selected ? theme.colorScheme.primary.withValues(alpha: 0.14) : null, borderRadius: BorderRadius.circular(24)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(selected ? destination.selectedIcon : destination.icon, color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
-              AnimatedSize(
-                duration: duration,
-                child: selected ? Padding(padding: const EdgeInsets.only(left: 6), child: ExcludeSemantics(child: Text(destination.label, style: Theme.of(context).textTheme.labelLarge))) : const SizedBox.shrink(),
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _DockIcon(destination: destination, selected: selected, color: color, duration: duration),
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: duration,
+              curve: Curves.elasticOut,
+              style: theme.textTheme.labelLarge!.copyWith(color: color, fontSize: 11),
+              child: ExcludeSemantics(child: Text(destination.label)),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _DockIcon extends StatelessWidget {
+  const _DockIcon({required this.destination, required this.selected, required this.color, required this.duration});
+
+  final _DockDestination destination;
+  final bool selected;
+  final Color color;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
+        duration: duration,
+        curve: Curves.elasticOut,
+        tween: ColorTween(end: color),
+        builder: (context, value, child) => Icon(selected ? destination.selectedIcon : destination.icon, color: value),
+      );
+}
+
+class _DockDestination {
+  const _DockDestination({required this.label, required this.icon, required this.selectedIcon});
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
 }

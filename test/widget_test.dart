@@ -29,6 +29,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dock-设置')));
     await tester.pumpAndSettle();
     expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
+
+    await tester.tap(homeDock);
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getCenter(homeDock));
+    await gesture.moveTo(tester.getCenter(find.byKey(const ValueKey('dock-设置'))));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('让陪伴更贴近你的习惯'), findsOneWidget);
     semantics.dispose();
   });
 }
