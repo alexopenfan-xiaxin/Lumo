@@ -51,7 +51,7 @@ jobs:
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" "$apk" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${version} (build ${GITHUB_RUN_NUMBER})" --notes $'新增 Cloudflare 智能体动态配置支持，并提升导航、列表、聊天与设置界面的视觉和可访问性。\n\n此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。'
+            gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Lumo ${version} (build ${GITHUB_RUN_NUMBER})" --notes $'系统级焕新首页、智能体、探索、聊天与设置界面，并优化深色模式、横屏、大字体、加载反馈和无障碍体验。\n\n此 APK 仅支持 64 位 ARM Android 设备，32 位设备无法安装。'
           fi
       - uses: actions/upload-artifact@v4
         with:

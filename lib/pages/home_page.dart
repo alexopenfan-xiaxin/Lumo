@@ -27,7 +27,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final duration = reduceMotion ? Duration.zero : 280.ms;
+    final duration = lumoMotionDuration(context, 280);
     final horizontalPadding = lumoHorizontalPadding(context);
     return SafeArea(
       child: CustomScrollView(
@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
                 LumoPageTitle(
                   title: 'Lumo',
                   subtitle: '下午好，愿你在这里慢下来',
+                  eyebrow: 'YOUR QUIET ORBIT',
                   trailing: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -82,16 +83,7 @@ class _HomePageState extends State<HomePage> {
                     .fadeIn(duration: duration)
                     .slideY(begin: 0.04, end: 0, duration: duration),
                 const SizedBox(height: 28),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('公告', style: Theme.of(context).textTheme.titleLarge),
-                    Text(
-                      '保持知情，也保留安静',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
+                const LumoSectionHeader(title: '公告', caption: '保持知情，也保留安静'),
                 const SizedBox(height: 12),
                 for (var i = 0; i < notices.length; i++) ...[
                   _NoticeCard(
@@ -146,6 +138,15 @@ class _WelcomeHero extends StatelessWidget {
                     colors: [Colors.transparent, Color(0xB82B2622)],
                     stops: [0.3, 1],
                   ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                top: 18,
+                child: LumoStatusPill(
+                  label: 'LUMO JOURNAL',
+                  color: Colors.white,
+                  icon: Icons.auto_awesome_rounded,
                 ),
               ),
               Positioned(
@@ -205,15 +206,7 @@ class _NoticeCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: notice.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(notice.icon, color: notice.color, size: 21),
-            ),
+              LumoIconTile(icon: notice.icon, color: notice.color),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -221,17 +214,7 @@ class _NoticeCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: notice.color.withValues(alpha: 0.11),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          notice.tag,
-                          style: TextStyle(color: notice.color, fontSize: 11),
-                        ),
-                      ),
+                      LumoStatusPill(label: notice.tag, color: Theme.of(context).colorScheme.primary),
                       const Spacer(),
                       Text(notice.time, style: Theme.of(context).textTheme.bodySmall),
                     ],
@@ -257,12 +240,13 @@ class _NoticeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           CircleAvatar(
             radius: 24,
             backgroundColor: notice.color.withValues(alpha: 0.15),
@@ -282,7 +266,8 @@ class _NoticeSheet extends StatelessWidget {
               child: const Text('知道了'),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     ),
   );

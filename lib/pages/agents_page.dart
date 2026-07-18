@@ -23,19 +23,23 @@ class AgentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final duration = reduceMotion ? Duration.zero : 260.ms;
+    final duration = lumoMotionDuration(context, 260);
     final horizontalPadding = lumoHorizontalPadding(context);
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('agents-scroll'),
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
-          const LumoPageTitle(title: '智能体', subtitle: '选择一位陪伴者延续对话'),
+          const LumoPageTitle(title: '智能体', subtitle: '选择一位陪伴者延续对话', eyebrow: 'COMPANIONS'),
           if (catalogError != null) ...[
             const SizedBox(height: 16),
             AgentCatalogNotice(message: catalogError!, onRetry: onRetry),
           ],
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
+          if (companions.isNotEmpty) ...[
+            LumoSectionHeader(title: '你的陪伴者', caption: '${companions.length} 位陪伴者'),
+            const SizedBox(height: 12),
+          ],
           if (companions.isEmpty)
             const Card(
               child: Padding(
@@ -49,33 +53,42 @@ class AgentsPage extends StatelessWidget {
               child: InkWell(
                 onTap: () => _openChat(context, companions[index]),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
                   child: Row(
                     children: [
-                      CompanionAvatar(companion: companions[index], size: 64, heroTag: 'agents-${companions[index].id}'),
+                      CompanionAvatar(companion: companions[index], size: 68, heroTag: 'agents-${companions[index].id}'),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(companions[index].name, style: Theme.of(context).textTheme.titleLarge),
-                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(child: Text(companions[index].name, style: Theme.of(context).textTheme.titleLarge)),
+                                LumoStatusPill(
+                                  label: companions[index].isAvailable ? '在线' : '未开放',
+                                  color: companions[index].isAvailable
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
                             Text(companions[index].tagline, style: Theme.of(context).textTheme.bodyMedium),
-                            if (!companions[index].isAvailable) ...[
-                              const SizedBox(height: 10),
-                              Text('该智能体暂未开放，敬请期待', style: Theme.of(context).textTheme.bodySmall),
-                            ],
+                            const SizedBox(height: 8),
+                            Text(companions[index].people, style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, size: 20, color: Theme.of(context).colorScheme.primary),
                     ],
                   ),
                 ),
               ),
             )
                 .animate()
-                .fadeIn(duration: duration)
+                .fadeIn(delay: reduceMotion ? Duration.zero : (50 * index).ms, duration: duration)
                 .slideX(begin: 0.025, end: 0, duration: duration),
             if (index < companions.length - 1) const SizedBox(height: 12),
           ],

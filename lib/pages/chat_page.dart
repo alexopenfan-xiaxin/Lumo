@@ -473,7 +473,10 @@ class _ChatPageState extends State<ChatPage> {
       };
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final horizontalPadding = lumoHorizontalPadding(context);
+    final messageDuration = lumoMotionDuration(context, 220);
+    return Scaffold(
     appBar: AppBar(
       titleSpacing: 0,
       title: Row(
@@ -484,19 +487,11 @@ class _ChatPageState extends State<ChatPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.companion.name, style: Theme.of(context).textTheme.titleMedium),
-              Row(
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(widget.companion.isAvailable ? '此刻在线' : '暂未开放', style: Theme.of(context).textTheme.bodySmall),
-                ],
+              Text(
+                widget.companion.isAvailable ? '此刻在线 · 安静陪着你' : '暂未开放',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: widget.companion.isAvailable ? Theme.of(context).colorScheme.secondary : null,
+                ),
               ),
             ],
           ),
@@ -515,16 +510,22 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: _isLoadingConversation
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: Semantics(
+                      label: '正在载入会话',
+                      liveRegion: true,
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
                 : ListView(
                     controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                    padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 20),
                     children: [
                       for (final message in _messages)
                         _MessageBubble(message: message)
                             .animate(key: ValueKey(message.id))
-                            .fadeIn(duration: MediaQuery.of(context).disableAnimations ? Duration.zero : 220.ms)
-                            .slideY(begin: 0.04, end: 0),
+                            .fadeIn(duration: messageDuration)
+                            .slideY(begin: 0.035, end: 0, duration: messageDuration),
                       if (_isReplying) _TypingBubble(color: widget.companion.color),
                     ],
                   ),
@@ -537,7 +538,7 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Card(
                   child: ListTile(
-                    leading: const Icon(Icons.psychology_outlined),
+                    leading: const LumoIconTile(icon: Icons.psychology_outlined),
                     title: Text('${widget.companion.name}想记住 ${_pendingMemories.length} 件事'),
                     subtitle: const Text('确认后才会用于后续对话'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
@@ -550,9 +551,12 @@ class _ChatPageState extends State<ChatPage> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, -4)),
+              ],
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              padding: EdgeInsets.fromLTRB(horizontalPadding - 8, 10, horizontalPadding - 8, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -575,26 +579,34 @@ class _ChatPageState extends State<ChatPage> {
                               onLongPressStart: (_) => unawaited(_beginSpeech()),
                               onLongPressEnd: (_) => _endSpeech(),
                               onLongPressCancel: _endSpeech,
+                              behavior: HitTestBehavior.opaque,
                               child: Container(
                                 height: 48,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: _isListening ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.16) : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: _isListening ? Theme.of(context).colorScheme.primary : Theme.of(context).dividerColor,
+                                  ),
                                 ),
                                 child: Text(_isListening ? '松开 结束语音输入' : '按住 说话'),
                               ),
                             ),
                           )
-                        : TextField(
-                            controller: _inputController,
-                            minLines: 1,
-                            maxLines: 4,
-                            maxLength: 4000,
-                            textInputAction: TextInputAction.send,
-                            onChanged: (_) => setState(() {}),
-                            onSubmitted: _send,
-                            decoration: const InputDecoration(hintText: '说说此刻的感受…', counterText: ''),
+                        : Semantics(
+                            label: '消息输入框',
+                            textField: true,
+                            child: TextField(
+                              controller: _inputController,
+                              minLines: 1,
+                              maxLines: 4,
+                              maxLength: 4000,
+                              textInputAction: TextInputAction.send,
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: _send,
+                              decoration: const InputDecoration(hintText: '说说此刻的感受…', counterText: ''),
+                            ),
                           ),
                   ),
                   const SizedBox(width: 8),
@@ -611,6 +623,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
     ),
   );
+  }
 }
 
 class _PreparedContext {
@@ -641,7 +654,7 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) => Align(
     alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
     child: Container(
-      constraints: const BoxConstraints(maxWidth: 310),
+      constraints: BoxConstraints(maxWidth: (MediaQuery.sizeOf(context).width * 0.78).clamp(240.0, 420.0).toDouble()),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -653,6 +666,9 @@ class _MessageBubble extends StatelessWidget {
           bottomRight: Radius.circular(message.fromUser ? 5 : 18),
         ),
         border: message.fromUser ? null : Border.all(color: Theme.of(context).dividerColor),
+        boxShadow: message.fromUser
+            ? null
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.025), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Text(
         message.text,

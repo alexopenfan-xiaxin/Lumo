@@ -61,14 +61,14 @@ class ExplorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final duration = reduceMotion ? Duration.zero : 280.ms;
+    final duration = lumoMotionDuration(context, 280);
     final horizontalPadding = lumoHorizontalPadding(context);
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('explore-scroll'),
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
-          const LumoPageTitle(title: '探索', subtitle: '认识这里的陪伴者'),
+          const LumoPageTitle(title: '探索', subtitle: '认识这里的陪伴者', eyebrow: 'DISCOVER'),
           if (catalogError != null) ...[
             const SizedBox(height: 16),
             AgentCatalogNotice(message: catalogError!, onRetry: onRetry),
@@ -81,34 +81,77 @@ class ExplorePage extends StatelessWidget {
                 child: Text('新的陪伴者正在准备中。', textAlign: TextAlign.center),
               ),
             ),
-          for (var index = 0; index < companions.length; index++) ...[
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => _showDetails(context, companions[index]),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Hero(tag: 'explore-${companions[index].id}', child: CompanionAvatar(companion: companions[index], size: 96)),
-                      const SizedBox(height: 16),
-                      Text(companions[index].name, style: Theme.of(context).textTheme.headlineMedium),
-                      const SizedBox(height: 6),
-                      Text(companions[index].tagline, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
-                      const SizedBox(height: 18),
-                      FilledButton(
-                        onPressed: companions[index].isAvailable ? () => _openChat(context, companions[index]) : null,
-                        child: Text(companions[index].isAvailable ? '和${companions[index].name}聊聊' : '暂未开放'),
+          if (companions.isNotEmpty) ...[
+            const LumoSectionHeader(title: '找到与你同频的人', caption: '轻触了解更多'),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 520 ? 2 : 1;
+                final cardWidth = (constraints.maxWidth - (columns - 1) * 12) / columns;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (var index = 0; index < companions.length; index++)
+                      SizedBox(
+                        width: cardWidth,
+                        child: _ExploreCard(
+                          companion: companions[index],
+                          onDetails: () => _showDetails(context, companions[index]),
+                          onChat: () => _openChat(context, companions[index]),
+                        )
+                            .animate()
+                            .fadeIn(delay: reduceMotion ? Duration.zero : (55 * index).ms, duration: duration)
+                            .slideY(begin: 0.035, end: 0, duration: duration),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(duration: duration).slideY(begin: 0.04, end: 0, duration: duration),
-            if (index < companions.length - 1) const SizedBox(height: 18),
+                  ],
+                );
+              },
+            ),
           ],
         ],
       ),
     );
   }
+}
+
+class _ExploreCard extends StatelessWidget {
+  const _ExploreCard({required this.companion, required this.onDetails, required this.onChat});
+
+  final Companion companion;
+  final VoidCallback onDetails;
+  final VoidCallback onChat;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Hero(tag: 'explore-${companion.id}', child: CompanionAvatar(companion: companion, size: 92)),
+          const SizedBox(height: 16),
+          Text(companion.name, style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 5),
+          LumoStatusPill(label: categoryLabel(companion.category), color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 12),
+          Text(
+            companion.tagline,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: companion.isAvailable ? onChat : null,
+              child: Text(companion.isAvailable ? '和${companion.name}聊聊' : '暂未开放'),
+            ),
+          ),
+          SizedBox(width: double.infinity, child: TextButton(onPressed: onDetails, child: const Text('了解更多'))),
+        ],
+      ),
+    ),
+  );
 }

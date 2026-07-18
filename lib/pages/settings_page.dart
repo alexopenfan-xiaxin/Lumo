@@ -298,48 +298,58 @@ class _SettingsPageState extends State<SettingsPage> {
         key: const PageStorageKey('settings-scroll'),
         padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
         children: [
-          const LumoPageTitle(title: '设置', subtitle: '让陪伴更贴近你的习惯'),
-          const SizedBox(height: 22),
+          const LumoPageTitle(title: '设置', subtitle: '让陪伴更贴近你的习惯', eyebrow: 'PERSONAL SPACE'),
+          const SizedBox(height: 24),
           Card(
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: _showAccount,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(_account?.username.substring(0, 1).toUpperCase() ?? '游', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_account?.username ?? '游客用户', style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 3),
-                          Text(
-                            _account == null ? '可体验 10 条消息' : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
+                      Theme.of(context).colorScheme.surface,
+                    ],
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: Text(_account?.username.substring(0, 1).toUpperCase() ?? '游', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_account?.username ?? '游客用户', style: Theme.of(context).textTheme.titleLarge),
+                            const SizedBox(height: 4),
+                            Text(
+                              _account == null ? '可体验 10 条消息' : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_rounded, color: Theme.of(context).colorScheme.primary),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 24),
+          const LumoSectionHeader(title: '陪伴偏好', caption: '应用于所有智能体'),
+          const SizedBox(height: 10),
           _SettingsCard(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                child: Text('全局陪伴偏好'),
-              ),
               _SettingsTile(
                 icon: Icons.favorite_outline_rounded,
                 title: '陪伴性格',
@@ -355,18 +365,22 @@ class _SettingsPageState extends State<SettingsPage> {
               const _SettingsTile(icon: Icons.translate_rounded, title: '陪伴语言', value: '中文'),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 24),
+          const LumoSectionHeader(title: '隐私与支持'),
+          const SizedBox(height: 10),
           _SettingsCard(
             children: [
               _SettingsTile(icon: Icons.policy_outlined, title: '隐私说明', onTap: _showPrivacy),
               _SettingsTile(icon: Icons.gavel_outlined, title: '开源许可', onTap: _showLicenses),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 24),
+          const LumoSectionHeader(title: '应用'),
+          const SizedBox(height: 10),
           _SettingsCard(
             children: [
               SwitchListTile(
-                secondary: const Icon(Icons.dark_mode_outlined),
+                secondary: const LumoIconTile(icon: Icons.dark_mode_outlined),
                 title: const Text('深色模式'),
                 value: widget.themeMode == ThemeMode.dark,
                 onChanged: (enabled) {
@@ -400,7 +414,7 @@ class _SettingsCard extends StatelessWidget {
           children: [
             for (var i = 0; i < children.length; i++) ...[
               children[i],
-              if (i != children.length - 1) Divider(height: 1, indent: 56, endIndent: 16, color: Theme.of(context).dividerColor),
+              if (i != children.length - 1) Divider(height: 1, indent: 72, endIndent: 16, color: Theme.of(context).dividerColor),
             ],
           ],
         ),
@@ -417,14 +431,19 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        minTileHeight: 56,
-        leading: Icon(icon),
+        minTileHeight: 64,
+        leading: LumoIconTile(icon: icon),
         title: Text(title),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (value != null) Text(value!, style: Theme.of(context).textTheme.bodyMedium),
-            if (onTap != null) const Icon(Icons.chevron_right_rounded),
+            if (value != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: Text(value!, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+              ),
+            if (onTap != null) const SizedBox(width: 4),
+            if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 20),
           ],
         ),
         onTap: onTap,

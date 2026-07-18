@@ -167,9 +167,9 @@ class NoticeItem {
 const notices = <NoticeItem>[
   NoticeItem(
     tag: '更新',
-    title: '1.3.0：轻盈导航与 arm64 版本',
-    description: '底部导航焕新，Release APK 体积更小。',
-    detail: '现在可使用更轻盈的悬浮导航切换页面。为减少下载体积，1.3.0 起的 Release APK 仅支持 64 位 Android 设备；32 位设备请继续使用当前已安装版本。可在“设置 → 关于 Lumo”检查更新。',
+    title: '1.3.0：界面焕新与 arm64 版本',
+    description: '五个主要界面更统一、更清晰，也更适合横屏与大字体。',
+    detail: 'Lumo 的首页、智能体、探索、聊天和设置现已完成系统级界面焕新：保留温暖安静的原有气质，同时优化视觉层级、深色模式、横屏布局、大字体与交互反馈。为减少下载体积，Release APK 仍仅支持 64 位 ARM Android 设备；32 位设备无法安装。可在“设置 → 关于 Lumo”检查更新。',
     time: '刚刚',
     color: LumoColors.clay,
     icon: Icons.auto_awesome_rounded,
