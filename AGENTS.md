@@ -31,6 +31,7 @@ Never substitute one workflow for the other. Both workflows are manual GitHub Ac
 - Every successful `Run` publishes the verified APK as an Actions artifact named `lumo-release-apk` and as a public GitHub Release asset.
 - Release builds target `android-arm64` only and publish one asset named `app-release.apk`. Keep that filename because the in-app updater resolves this exact Release asset; retain the signed APK check plus the ABI check that rejects `armeabi-v7a` and `x86_64` libraries.
 - Inject `APP_RELEASE_BUILD` from `GITHUB_RUN_NUMBER` into every APK. The updater compares semantic version first and then this build number, so a corrected public build can update users without changing the semantic version.
+- Keep updates independent of the Activity lifecycle: query `DownloadManager` by its returned ID, show that progress in-app, and explicitly open the installer after `STATUS_SUCCESSFUL`; do not rely on an Activity-scoped completion receiver.
 - arm64-only releases reduce download size but do not support 32-bit Android devices. State that limitation in the released in-app announcement and GitHub Release notes; do not silently switch back to universal APKs.
 - Release tags use `v<pubspec semantic version>-build.<GitHub run number>` to make every package unique. Bump `pubspec.yaml` `version` for a new app version; never reuse an existing release tag for a different build.
 - Do not change `pubspec.yaml` version unless the user explicitly requests a version bump or release version.
