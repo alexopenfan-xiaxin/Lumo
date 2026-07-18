@@ -2,9 +2,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class ChatStore {
-  ChatStore({DatabaseFactory? factory, String? databasePath})
-    : _factory = factory,
-      _databasePath = databasePath;
+  ChatStore({this._factory, this._databasePath});
 
   final DatabaseFactory? _factory;
   final String? _databasePath;
@@ -59,10 +57,11 @@ class ChatStore {
           );
         },
         onUpgrade: (database, oldVersion, newVersion) async {
-          if (oldVersion < 2)
+          if (oldVersion < 2) {
             await database.execute(
               'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
             );
+          }
         },
       ),
     );

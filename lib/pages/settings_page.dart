@@ -171,8 +171,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 username.text.trim(),
                                 password.text,
                               );
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           Navigator.pop(dialogContext, result);
+                        }
                       } on AuthException catch (exception) {
                         setDialogState(() {
                           loading = false;
@@ -315,25 +316,29 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       );
     } on SocketException {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('网络不可用，暂时无法检查更新。')));
+      }
     } on HttpException {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('更新服务暂不可用，请稍后再试。')));
+      }
     } on FormatException {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('更新信息无效，请稍后再试。')));
+      }
     } on Exception {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('暂时无法检查更新，请稍后再试。')));
+      }
     }
   }
 
@@ -342,10 +347,11 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!await _ensureInstallPermission() || !mounted) return;
       await _downloadUpdate(update);
     } on PlatformException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.message ?? '无法完成更新，请稍后再试。')),
         );
+      }
     }
   }
 
@@ -410,11 +416,12 @@ class _ProfilePageState extends State<ProfilePage> {
       while (mounted) {
         final status = await checker.downloadStatus(id);
         progress.value = status.progress;
-        if (status.isFailed)
+        if (status.isFailed) {
           throw PlatformException(
             code: 'download_failed',
             message: '更新下载失败（系统原因 ${status.reason ?? '未知'}）。',
           );
+        }
         if (status.isComplete) break;
         await Future<void>.delayed(const Duration(milliseconds: 350));
       }
@@ -423,8 +430,9 @@ class _ProfilePageState extends State<ProfilePage> {
       dialogOpen = false;
       await checker.installDownloadedApk(id);
     } finally {
-      if (dialogOpen && mounted)
+      if (dialogOpen && mounted) {
         Navigator.of(context, rootNavigator: true).pop();
+      }
       progress.dispose();
     }
   }

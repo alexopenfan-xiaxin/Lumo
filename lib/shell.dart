@@ -127,8 +127,9 @@ class _LumoShellState extends State<LumoShell> {
           onDragStart: (position, width) => _draggingSelection =
               _indexAt(_dockPosition(position), width) == _index,
           onDragUpdate: (position, width) {
-            if (_draggingSelection)
+            if (_draggingSelection) {
               _select(_indexAt(_dockPosition(position), width));
+            }
           },
           onDragEnd: () => _draggingSelection = false,
         ),

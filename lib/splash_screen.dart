@@ -351,8 +351,9 @@ class _LumoMascotPainter extends CustomPainter {
       canvas.drawOval(cushionRect, cushion);
     }
 
-    if (showWaiting)
+    if (showWaiting) {
       _drawWaitingBubble(canvas, size, body.top - size.height * 0.07);
+    }
   }
 
   void _drawEye(Canvas canvas, Offset center, double radius) {

@@ -43,8 +43,9 @@ class _AgentsPageState extends State<AgentsPage> {
     final entries = await Future.wait(
       widget.companions.map((companion) async {
         final conversation = await _store.latestConversation(companion.id);
-        if (conversation == null)
+        if (conversation == null) {
           return MapEntry(companion.id, const _AgentPreview());
+        }
         final messages = await _store.messages(conversation.id);
         return MapEntry(
           companion.id,
@@ -55,10 +56,11 @@ class _AgentsPageState extends State<AgentsPage> {
         );
       }),
     );
-    if (mounted)
+    if (mounted) {
       setState(
         () => _previews = Map<String, _AgentPreview>.fromEntries(entries),
       );
+    }
   }
 
   Future<void> _openChat(Companion companion, {bool createNew = false}) async {

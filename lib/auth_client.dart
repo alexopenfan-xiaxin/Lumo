@@ -94,8 +94,9 @@ class AuthClient {
       final decoded =
           jsonDecode(await utf8.decoder.bind(response).join())
               as Map<String, dynamic>;
-      if (response.statusCode != HttpStatus.ok)
+      if (response.statusCode != HttpStatus.ok) {
         throw AuthException(decoded['error'] as String? ?? '账号操作失败，请稍后再试。');
+      }
       return decoded;
     } on SocketException {
       throw const AuthException('网络好像开小差了，请稍后再试。');

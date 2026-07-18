@@ -249,7 +249,7 @@ class _CompanionCover extends StatelessWidget {
             fit: BoxFit.cover,
             alignment: _alignment(companion.id),
             excludeFromSemantics: true,
-            errorBuilder: (_, __, ___) => fallback,
+            errorBuilder: (_, _, _) => fallback,
           )
         : fallback;
     return Semantics(

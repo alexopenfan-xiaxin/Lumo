@@ -59,15 +59,18 @@ class UpdateChecker {
       );
       request.headers.set(HttpHeaders.userAgentHeader, 'Lumo/$appVersion');
       final response = await request.close();
-      if (response.statusCode != HttpStatus.ok)
+      if (response.statusCode != HttpStatus.ok) {
         throw const HttpException('Unable to check for updates');
+      }
       final body = jsonDecode(await utf8.decoder.bind(response).join());
-      if (body is! Map<String, dynamic>)
+      if (body is! Map<String, dynamic>) {
         throw const FormatException('Invalid release');
+      }
       final tag = body['tag_name'];
       final assets = body['assets'];
-      if (tag is! String || assets is! List)
+      if (tag is! String || assets is! List) {
         throw const FormatException('Invalid release');
+      }
       final asset = assets
           .whereType<Map<String, dynamic>>()
           .where((item) => item['name'] == 'app-release.apk')
@@ -109,8 +112,9 @@ class UpdateChecker {
       'downloadStatus',
       {'id': id},
     );
-    if (status == null)
+    if (status == null) {
       throw PlatformException(code: 'download_missing', message: '无法读取更新下载状态。');
+    }
     return UpdateDownloadStatus.fromMap(status);
   }
 

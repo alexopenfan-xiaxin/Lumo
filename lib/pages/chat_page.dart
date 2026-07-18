@@ -172,10 +172,11 @@ class _ChatPageState extends State<ChatPage> {
         role: MessageRole.assistant,
         content: reply,
       );
-      if (mounted)
+      if (mounted) {
         setState(
           () => _messages.add(_ChatMessage.fromStored(assistantMessage)),
         );
+      }
       unawaited(_proposeMemories(conversation.id));
     } on AiQuotaException catch (error) {
       await _store.deleteMessage(userMessage.id);
@@ -189,10 +190,11 @@ class _ChatPageState extends State<ChatPage> {
         ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } on AiChatException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
     } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -341,8 +343,9 @@ class _ChatPageState extends State<ChatPage> {
                           onPressed: () async {
                             final conversation = await _store
                                 .createConversation(widget.companion.id);
-                            if (sheetContext.mounted)
+                            if (sheetContext.mounted) {
                               Navigator.pop(sheetContext, conversation);
+                            }
                           },
                           icon: const Icon(Icons.add_comment_outlined),
                           label: const Text('新建'),
@@ -439,8 +442,9 @@ class _ChatPageState extends State<ChatPage> {
                                     if (!await _confirm(
                                       '清空全部记忆？',
                                       '已确认和待确认的记忆都会永久删除。',
-                                    ))
+                                    )) {
                                       return;
+                                    }
                                     await _store.clearMemories(
                                       widget.companion.id,
                                     );
@@ -449,10 +453,11 @@ class _ChatPageState extends State<ChatPage> {
                                         widget.companion.id,
                                       ),
                                     );
-                                    if (mounted)
+                                    if (mounted) {
                                       setState(
                                         () => _pendingMemories = const [],
                                       );
+                                    }
                                   },
                             icon: const Icon(Icons.delete_sweep_outlined),
                           ),
@@ -564,10 +569,11 @@ class _ChatPageState extends State<ChatPage> {
         setState(() {});
       }
     } on PlatformException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.message ?? '无法启动语音输入。')));
+      }
     } finally {
       if (mounted) setState(() => _isListening = false);
     }
