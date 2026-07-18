@@ -1,0 +1,28 @@
+name: Bootstrap Dart fix patch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: dart fix --apply
+      - run: dart format lib test
+      - run: git diff --binary -- lib test > dart-fix.patch
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lumo-dart-fix-patch
+          path: dart-fix.patch
+          if-no-files-found: error
+          retention-days: 1
