@@ -37,9 +37,7 @@ class AuthClient {
     } on PlatformException {
       // A platform identity failure must not prevent the guest experience.
     }
-    if (guestId == null) {
-      guestId = List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join();
-    }
+    guestId ??= List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join();
     await _store.saveSetting(_guestKey, guestId);
     return RequestIdentity(guestId: guestId, token: (await session())?.token);
   }

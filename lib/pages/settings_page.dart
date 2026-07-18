@@ -37,10 +37,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _load() async {
     final preferences = await _store.companionPreferences();
     final account = await _authClient.session();
-    if (mounted) setState(() {
-      _preferences = preferences;
-      _account = account;
-    });
+    if (mounted) {
+      setState(() {
+        _preferences = preferences;
+        _account = account;
+      });
+    }
   }
 
   Future<void> _showAccount() async {
