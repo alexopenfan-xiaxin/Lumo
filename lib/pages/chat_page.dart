@@ -510,11 +510,11 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: _isLoadingConversation
-                ? const Center(
+                ? Center(
                     child: Semantics(
                       label: '正在载入会话',
                       liveRegion: true,
-                      child: CircularProgressIndicator(),
+                      child: const CircularProgressIndicator(),
                     ),
                   )
                 : ListView(
