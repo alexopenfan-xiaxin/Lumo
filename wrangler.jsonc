@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lumo-ai",
+  "pages_build_output_dir": "pages",
+  "compatibility_date": "2026-07-18",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lumo-auth",
+      "database_id": "3a83e9f2-d8de-4247-9c0a-0b3568df2fde"
+    }
+  ]
+}

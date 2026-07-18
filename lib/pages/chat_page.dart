@@ -8,6 +8,7 @@ import '../ai_chat_client.dart';
 import '../chat_store.dart';
 import '../context_window.dart';
 import '../data.dart';
+import '../speech_input.dart';
 import '../widgets.dart';
 
 class ChatPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _ChatPageState extends State<ChatPage> {
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
   bool _isLoadingConversation = false;
+  bool _isListening = false;
 
   @override
   void initState() {
@@ -147,6 +149,12 @@ class _ChatPageState extends State<ChatPage> {
       );
       if (mounted) setState(() => _messages.add(_ChatMessage.fromStored(assistantMessage)));
       unawaited(_proposeMemories(conversation.id));
+    } on AiQuotaException catch (error) {
+      await _store.deleteMessage(userMessage.id);
+      if (mounted) {
+        setState(() => _messages.removeWhere((message) => message.id == userMessage.id));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      }
     } on AiChatException catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
     } on Exception {
@@ -230,149 +238,6 @@ class _ChatPageState extends State<ChatPage> {
   AiChatMessage _asAiMessage(StoredMessage message) =>
       AiChatMessage(role: message.role == MessageRole.user ? 'user' : 'assistant', content: message.content);
 
-  Future<void> _showSessions() async {
-    Future<List<Conversation>> sessions = _store.conversations(widget.companion.id);
-    final selected = await showModalBottomSheet<Conversation>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: FutureBuilder<List<Conversation>>(
-            future: sessions,
-            builder: (context, snapshot) {
-              final items = snapshot.data ?? const <Conversation>[];
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text('会话', style: Theme.of(context).textTheme.titleLarge)),
-                        FilledButton.icon(
-                          onPressed: () async {
-                            final conversation = await _store.createConversation(widget.companion.id);
-                            if (sheetContext.mounted) Navigator.pop(sheetContext, conversation);
-                          },
-                          icon: const Icon(Icons.add_comment_outlined),
-                          label: const Text('新建'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (snapshot.connectionState != ConnectionState.done)
-                      const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final conversation = items[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(conversation.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              subtitle: Text(_timeLabel(conversation.updatedAt)),
-                              onTap: () => Navigator.pop(sheetContext, conversation),
-                              trailing: IconButton(
-                                tooltip: '删除会话',
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                onPressed: () async {
-                                  await _store.deleteConversation(conversation.id);
-                                  setSheetState(() => sessions = _store.conversations(widget.companion.id));
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-    if (selected != null) await _loadConversation(conversation: selected);
-  }
-
-  Future<void> _showInfo() async {
-    if (!widget.companion.isAvailable) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(widget.companion.name),
-          content: Text('${widget.companion.tagline}\n\n该智能体暂未开放。'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭'))],
-        ),
-      );
-      return;
-    }
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.psychology_outlined),
-                title: Text('${widget.companion.name}的记忆'),
-                subtitle: Text('${_pendingMemories.length} 条等待确认'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showMemories();
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('清空当前会话'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  if (await _confirm('清空当前会话？', '早期摘要和当前会话消息都会永久删除。')) {
-                    final conversation = _conversation;
-                    if (conversation != null) await _store.deleteConversation(conversation.id);
-                    await _loadConversation(createNew: true);
-                  }
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.delete_sweep_outlined),
-                title: const Text('清空全部会话'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  if (await _confirm('清空全部会话？', '所有${widget.companion.name}会话与摘要都会永久删除。')) {
-                    await _store.clearConversations(widget.companion.id);
-                    await _loadConversation(createNew: true);
-                  }
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.delete_forever_outlined),
-                title: const Text('清空全部记忆'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  if (await _confirm('清空全部记忆？', '已确认和待确认的长期记忆都会永久删除。')) {
-                    await _store.clearMemories(widget.companion.id);
-                    if (mounted) setState(() => _pendingMemories = const []);
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _showMemories() async {
     Future<List<MemoryEntry>> memoryFuture = _store.memories(widget.companion.id);
     await showModalBottomSheet<void>(
@@ -392,7 +257,23 @@ class _ChatPageState extends State<ChatPage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${widget.companion.name}的记忆', style: Theme.of(context).textTheme.titleLarge),
+                      Row(
+                        children: [
+                          Expanded(child: Text('${widget.companion.name}的记忆', style: Theme.of(context).textTheme.titleLarge)),
+                          IconButton(
+                            tooltip: '清空全部记忆',
+                            onPressed: memories.isEmpty
+                                ? null
+                                : () async {
+                                    if (!await _confirm('清空全部记忆？', '已确认和待确认的记忆都会永久删除。')) return;
+                                    await _store.clearMemories(widget.companion.id);
+                                    setSheetState(() => memoryFuture = _store.memories(widget.companion.id));
+                                    if (mounted) setState(() => _pendingMemories = const []);
+                                  },
+                            icon: const Icon(Icons.delete_sweep_outlined),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 4),
                       Text('只有确认后的内容会在后续对话中使用。', style: Theme.of(context).textTheme.bodySmall),
                       const SizedBox(height: 12),
@@ -460,6 +341,23 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted) setState(() => _pendingMemories = pending);
   }
 
+  Future<void> _listen() async {
+    if (_isListening) return;
+    setState(() => _isListening = true);
+    try {
+      final text = await SpeechInput().listen();
+      if (text.isNotEmpty && mounted) {
+        _inputController.text = text;
+        _inputController.selection = TextSelection.collapsed(offset: text.length);
+        setState(() {});
+      }
+    } on PlatformException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? '无法启动语音输入。')));
+    } finally {
+      if (mounted) setState(() => _isListening = false);
+    }
+  }
+
   Future<bool> _confirm(String title, String content) async =>
       await showDialog<bool>(
         context: context,
@@ -489,11 +387,6 @@ class _ChatPageState extends State<ChatPage> {
     );
     controller.dispose();
     return result?.isEmpty ?? true ? null : result;
-  }
-
-  String _timeLabel(int timestamp) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    return '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   String _memoryLabel(MemoryStatus status) => switch (status) {
@@ -534,8 +427,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
       actions: [
         if (widget.companion.isAvailable)
-          IconButton(tooltip: '会话列表', onPressed: _showSessions, icon: const Icon(Icons.forum_outlined)),
-        IconButton(tooltip: '对话信息', onPressed: _showInfo, icon: const Icon(Icons.info_outline_rounded)),
+          IconButton(tooltip: '${widget.companion.name}的记忆', onPressed: _showMemories, icon: const Icon(Icons.psychology_outlined)),
       ],
     ),
     body: SafeArea(
@@ -575,19 +467,6 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-          if (_messages.length == 1 && widget.companion.isAvailable)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-              child: Row(
-                children: [
-                  for (final prompt in const ['今天有点累', '想做一次呼吸练习', '只是想找人说说话']) ...[
-                    ActionChip(label: Text(prompt), onPressed: () => _send(prompt)),
-                    const SizedBox(width: 8),
-                  ],
-                ],
-              ),
-            ),
           DecoratedBox(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
@@ -599,9 +478,9 @@ class _ChatPageState extends State<ChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   IconButton(
-                    tooltip: '语音输入',
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('语音输入暂未开放'))),
-                    icon: const Icon(Icons.mic_none_rounded),
+                    tooltip: _isListening ? '正在倾听' : '语音输入',
+                    onPressed: _isReplying || _isListening ? null : _listen,
+                    icon: Icon(_isListening ? Icons.hearing_rounded : Icons.mic_none_rounded),
                   ),
                   Expanded(
                     child: TextField(

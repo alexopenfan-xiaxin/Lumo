@@ -48,7 +48,7 @@ class AgentsPage extends StatelessWidget {
                             Text(companions[index].tagline, style: Theme.of(context).textTheme.bodyMedium),
                             const SizedBox(height: 10),
                             Text(
-                              companions[index].isAvailable ? '本机保存的会话可在聊天页切换' : '该智能体暂未开放，敬请期待',
+                              companions[index].isAvailable ? '随时回来继续聊聊' : '该智能体暂未开放，敬请期待',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],

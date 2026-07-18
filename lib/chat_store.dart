@@ -210,6 +210,23 @@ class ChatStore {
   Future<void> clearMemories(String agentId) async =>
       (await _db).delete('memories', where: 'agent_id = ?', whereArgs: [agentId]);
 
+  Future<void> deleteMessage(String messageId) async =>
+      (await _db).delete('messages', where: 'id = ?', whereArgs: [messageId]);
+
+  Future<String?> setting(String key) async {
+    final rows = await (await _db).query('settings', columns: ['value'], where: 'key = ?', whereArgs: [key], limit: 1);
+    return rows.isEmpty ? null : rows.single['value']! as String;
+  }
+
+  Future<void> saveSetting(String key, String? value) async {
+    final database = await _db;
+    if (value == null) {
+      await database.delete('settings', where: 'key = ?', whereArgs: [key]);
+    } else {
+      await database.insert('settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
   Future<CompanionPreferences> companionPreferences() async {
     final rows = await (await _db).query('settings', where: 'key IN (?, ?)', whereArgs: const ['companion_personality', 'conversation_topic']);
     final values = {for (final row in rows) row['key']! as String: row['value']! as String};

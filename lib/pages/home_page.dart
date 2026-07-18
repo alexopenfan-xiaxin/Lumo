@@ -58,7 +58,7 @@ class _HomePageState extends State<HomePage> {
                           right: 5,
                           top: 5,
                           child: Semantics(
-                            label: '3 条未读消息',
+                            label: '1 条未读消息',
                             child: Container(
                               width: 9,
                               height: 9,
@@ -77,7 +77,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 22),
-                _WelcomeHero(onTap: () => _showNotice(notices[1]))
+                _WelcomeHero(onTap: () => _showNotice(notices.single))
                     .animate()
                     .fadeIn(duration: duration)
                     .slideY(begin: 0.04, end: 0, duration: duration),
@@ -120,7 +120,7 @@ class _WelcomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: '打开七日微光计划',
+    label: '打开 Lumo 更新公告',
     child: Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -160,7 +160,7 @@ class _WelcomeHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            '七日微光计划',
+                            'Lumo 1.3.0 更新',
                             style: TextStyle(
                               color: Colors.white,
                               fontFamily: 'LumoDisplay',
@@ -169,7 +169,7 @@ class _WelcomeHero extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '每天一分钟，照见此刻的自己',
+                            '更轻盈的导航与安装包',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white.withValues(alpha: 0.88),
                             ),

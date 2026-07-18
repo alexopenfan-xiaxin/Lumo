@@ -1,10 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'auth_client.dart';
+
 class AiChatClient {
-  AiChatClient({String? endpoint}) : _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT');
+  AiChatClient({String? endpoint, AuthClient? authClient})
+      : _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT'),
+        _authClient = authClient ?? AuthClient(endpoint: endpoint);
 
   final String _endpoint;
+  final AuthClient _authClient;
 
   Future<String> reply(
     List<AiChatMessage> messages, {
@@ -69,13 +74,21 @@ class AiChatClient {
     if (_endpoint.isEmpty) throw const AiChatException('AI 服务还没有部署完成。');
     final client = HttpClient();
     try {
+      final identity = await _authClient.identity();
       final request = await client.postUrl(Uri.parse(_endpoint));
       request.headers.contentType = ContentType.json;
-      request.write(jsonEncode({'agentId': agentId, ...body}));
+      if (identity.token != null) request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${identity.token}');
+      request.write(jsonEncode({'agentId': agentId, 'guestId': identity.guestId, ...body}));
       final response = await request.close();
       final decoded = jsonDecode(await utf8.decoder.bind(response).join()) as Map<String, dynamic>;
       if (response.statusCode == HttpStatus.requestEntityTooLarge && decoded['contextLimit'] == true) {
         throw const AiContextLimitException();
+      }
+      if (response.statusCode == HttpStatus.tooManyRequests) {
+        throw AiQuotaException(decoded['error'] as String? ?? '已达发送限额。');
+      }
+      if (response.statusCode == HttpStatus.unauthorized) {
+        throw const AiChatException('登录已过期，请在设置中重新登录。');
       }
       if (response.statusCode != HttpStatus.ok) throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
       return decoded;
@@ -97,6 +110,10 @@ class AiChatException implements Exception {
 
 class AiContextLimitException extends AiChatException {
   const AiContextLimitException() : super('上下文已整理，正在重试。');
+}
+
+class AiQuotaException extends AiChatException {
+  const AiQuotaException(super.message);
 }
 
 class AiChatMessage {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_info.dart';
+import '../auth_client.dart';
 import '../chat_store.dart';
 import '../update_checker.dart';
 import '../widgets.dart';
@@ -20,7 +21,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _store = ChatStore();
-  String _nickname = '微光旅人';
+  late final _authClient = AuthClient(store: _store);
+  AccountSession? _account;
   CompanionPreferences _preferences = const CompanionPreferences(
     personality: CompanionPreferences.defaultPersonality,
     topic: CompanionPreferences.defaultTopic,
@@ -29,47 +31,115 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
+    _load();
   }
 
-  Future<void> _loadPreferences() async {
+  Future<void> _load() async {
     final preferences = await _store.companionPreferences();
-    if (mounted) setState(() => _preferences = preferences);
+    final account = await _authClient.session();
+    if (mounted) setState(() {
+      _preferences = preferences;
+      _account = account;
+    });
   }
 
-  Future<void> _editProfile() async {
-    final controller = TextEditingController(text: _nickname);
-    final saved = await showModalBottomSheet<String>(
+  Future<void> _showAccount() async {
+    final account = _account;
+    if (account != null) {
+      final logout = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(account.username),
+          content: Text(account.isMember ? '永久会员' : '普通用户 · 每日 100 条消息'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('退出登录')),
+          ],
+        ),
+      );
+      if (logout == true) {
+        await _authClient.logout();
+        if (mounted) setState(() => _account = null);
+      }
+      return;
+    }
+    final register = await showModalBottomSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(24, 8, 24, MediaQuery.viewInsetsOf(context).bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('编辑个人资料', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            TextField(controller: controller, autofocus: true, maxLength: 20, decoration: const InputDecoration(labelText: '昵称')),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  final value = controller.text.trim();
-                  if (value.isNotEmpty) Navigator.pop(context, value);
-                },
-                child: const Text('保存资料'),
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(leading: const Icon(Icons.login_rounded), title: const Text('登录'), onTap: () => Navigator.pop(context, false)),
+              ListTile(
+                leading: const Icon(Icons.person_add_alt_rounded),
+                title: const Text('邀请注册'),
+                subtitle: const Text('注册时需要邀请码'),
+                onTap: () => Navigator.pop(context, true),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (register != null) await _authenticate(register: register);
+  }
+
+  Future<void> _authenticate({required bool register}) async {
+    final username = TextEditingController();
+    final password = TextEditingController();
+    final invite = TextEditingController();
+    var loading = false;
+    String? error;
+    final account = await showDialog<AccountSession>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(register ? '邀请注册' : '登录 Lumo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: username, autofocus: true, maxLength: 24, decoration: const InputDecoration(labelText: '账号')),
+              TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: '密码')),
+              if (register) TextField(controller: invite, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: '邀请码')),
+              if (error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: loading ? null : () => Navigator.pop(context), child: const Text('取消')),
+            FilledButton(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        loading = true;
+                        error = null;
+                      });
+                      try {
+                        final result = register
+                            ? await _authClient.register(username.text.trim(), password.text, invite.text.trim())
+                            : await _authClient.login(username.text.trim(), password.text);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, result);
+                      } on AuthException catch (exception) {
+                        setDialogState(() {
+                          loading = false;
+                          error = exception.message;
+                        });
+                      }
+                    },
+              child: Text(loading ? '请稍候…' : (register ? '注册' : '登录')),
             ),
           ],
         ),
       ),
     );
-    controller.dispose();
-    if (!mounted || saved == null) return;
-    HapticFeedback.lightImpact();
-    setState(() => _nickname = saved);
+    username.dispose();
+    password.dispose();
+    invite.dispose();
+    if (account != null && mounted) setState(() => _account = account);
   }
 
   Future<void> _selectPreference({required String title, required List<String> values, required bool isPersonality}) async {
@@ -109,9 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('隐私说明'),
-          content: const Text(
-            'Lumo 会将会话、摘要和你确认的记忆保存在这台设备的本地数据库中。\n\n发送消息时，当前所需上下文会通过 Cloudflare Pages 转发给 SenseNova 生成回复；不会创建账号或进行云端会话同步。你可以在每个智能体的对话信息中分别清空会话和记忆。',
-          ),
+          content: const Text('Lumo 会妥善处理你的账号与对话数据。对话和记忆由你管理，你可以随时删除。'),
           actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了'))],
         ),
       );
@@ -145,14 +213,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final update = await UpdateChecker().check();
       if (!mounted) return;
       if (update == null) {
-        await showDialog<void>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('已是最新版本'),
-            content: Text('当前版本 $appVersionLabel 已是 GitHub Release 中的最新版本。'),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了'))],
-          ),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('已是最新版本')));
         return;
       }
       await showDialog<void>(
@@ -168,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 try {
                   final result = await UpdateChecker().downloadAndInstall(update.url);
                   messenger.showSnackBar(
-                    SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再点一次“检查更新”。' : '更新开始下载，完成后将打开安装器。')),
+                    SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再到“关于 Lumo”中检查。' : '更新开始下载，完成后将打开安装器。')),
                   );
                 } on PlatformException catch (error) {
                   messenger.showSnackBar(SnackBar(content: Text(error.message ?? '无法开始下载，请稍后再试。')));
@@ -190,6 +251,38 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _showAbout() => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const LumoMark(size: 56),
+                const SizedBox(height: 12),
+                Text('Lumo', style: Theme.of(sheetContext).textTheme.headlineSmall),
+                const SizedBox(height: 4),
+                Text(appVersionLabel, style: Theme.of(sheetContext).textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                ListTile(
+                  minTileHeight: 56,
+                  leading: const Icon(Icons.system_update_outlined),
+                  title: const Text('检查更新'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _checkForUpdate();
+                  },
+                ),
+                const Padding(padding: EdgeInsets.only(top: 8), child: Text('© 2026 Lumo contributors')),
+              ],
+            ),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
@@ -203,7 +296,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Card(
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: _editProfile,
+              onTap: _showAccount,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -211,13 +304,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(_nickname.substring(0, 1), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      child: Text(_account?.username.substring(0, 1).toUpperCase() ?? '游', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [Text(_nickname, style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 3), Text('ID: LUMO_20260716', style: Theme.of(context).textTheme.bodySmall)],
+                        children: [
+                          Text(_account?.username ?? '游客用户', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 3),
+                          Text(
+                            _account == null ? '可体验 10 条消息' : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                     const Icon(Icons.chevron_right_rounded),
@@ -268,22 +368,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               _SettingsTile(
-                icon: Icons.system_update_outlined,
-                title: '检查更新',
-                value: appVersionLabel,
-                onTap: _checkForUpdate,
-              ),
-              _SettingsTile(
                 icon: Icons.info_outline_rounded,
                 title: '关于 Lumo',
                 value: appVersionLabel,
-                onTap: () => showAboutDialog(
-                  context: context,
-                  applicationName: 'Lumo',
-                  applicationVersion: appVersionLabel,
-                  applicationLegalese: '© 2026 Lumo contributors',
-                  applicationIcon: const LumoMark(size: 52),
-                ),
+                onTap: _showAbout,
               ),
             ],
           ),

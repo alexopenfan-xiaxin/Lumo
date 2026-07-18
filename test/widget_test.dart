@@ -12,7 +12,7 @@ void main() {
   testWidgets('floating navigation reaches every primary page', (tester) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(const LumoApp());
-    expect(find.text('七日微光计划'), findsWidgets);
+    expect(find.text('Lumo 1.3.0 更新'), findsWidgets);
 
     final homeDock = find.byKey(const ValueKey('dock-首页'));
     expect(homeDock, findsOneWidget);
