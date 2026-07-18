@@ -72,34 +72,41 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.lumo.companion/external_url")
             .setMethodCallHandler { call, result ->
-                if (call.method != "downloadApk") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
-                }
                 val uri = call.argument<String>("url")?.let(Uri::parse)
                 if (uri?.scheme != "https" || uri.host != "github.com") {
                     result.error("invalid_url", "Only GitHub APK URLs are allowed", null)
                     return@setMethodCallHandler
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
-                    result.success("permission_required")
-                    return@setMethodCallHandler
-                }
-                try {
-                    getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                        ?.listFiles { file -> file.name.startsWith("lumo-update-") && file.extension == "apk" }
-                        ?.forEach { file -> file.delete() }
-                    val request = DownloadManager.Request(uri)
-                        .setTitle("Lumo 更新")
-                        .setDescription("正在下载最新版本")
-                        .setMimeType("application/vnd.android.package-archive")
-                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                        .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "lumo-update-${System.currentTimeMillis()}.apk")
-                    pendingDownloadId = downloadManager.enqueue(request)
-                    result.success("downloading")
-                } catch (error: Exception) {
-                    result.error("download_failed", error.message, null)
+                when (call.method) {
+                    "downloadApk" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                            result.success("permission_required")
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                                ?.listFiles { file -> file.name.startsWith("lumo-update-") && file.extension == "apk" }
+                                ?.forEach { file -> file.delete() }
+                            val request = DownloadManager.Request(uri)
+                                .setTitle("Lumo 更新")
+                                .setDescription("正在下载最新版本")
+                                .setMimeType("application/vnd.android.package-archive")
+                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                                .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "lumo-update-${System.currentTimeMillis()}.apk")
+                            pendingDownloadId = downloadManager.enqueue(request)
+                            result.success("downloading")
+                        } catch (error: Exception) {
+                            result.error("download_failed", "系统下载服务无法启动（${error.javaClass.simpleName}）：${error.message ?: "未知错误"}", null)
+                        }
+                    }
+                    "openUrl" -> try {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("browser_failed", "无法打开浏览器（${error.javaClass.simpleName}）：${error.message ?: "未知错误"}", null)
+                    }
+                    else -> result.notImplemented()
                 }
             }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.lumo.companion/speech")

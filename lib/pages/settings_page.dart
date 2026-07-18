@@ -234,7 +234,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     SnackBar(content: Text(result == 'permission_required' ? '请允许 Lumo 安装未知应用后，再到“关于 Lumo”中检查。' : '更新开始下载，完成后将打开安装器。')),
                   );
                 } on PlatformException catch (error) {
-                  messenger.showSnackBar(SnackBar(content: Text(error.message ?? '无法开始下载，请稍后再试。')));
+                  try {
+                    await UpdateChecker().openInBrowser(update.url);
+                    messenger.showSnackBar(const SnackBar(content: Text('系统下载服务不可用，已在浏览器中打开 APK 下载。')));
+                  } on PlatformException {
+                    messenger.showSnackBar(SnackBar(content: Text(error.message ?? '无法开始下载，请稍后再试。')));
+                  }
                 }
               },
               child: const Text('去下载'),
