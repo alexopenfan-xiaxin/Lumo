@@ -1,20 +1,20 @@
 package app.lumo.companion
 
 import android.Manifest
-import android.app.DownloadManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
@@ -22,7 +22,6 @@ class MainActivity : FlutterActivity() {
         private const val SPEECH_PERMISSION_REQUEST = 9031
     }
 
-    private val downloadManager by lazy { getSystemService(DOWNLOAD_SERVICE) as DownloadManager }
     private var speechRecognizer: SpeechRecognizer? = null
     private var pendingSpeechResult: MethodChannel.Result? = null
     private var startSpeechAfterPermission = false
@@ -44,57 +43,19 @@ class MainActivity : FlutterActivity() {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
                         result.success(null)
                     }
-                    "downloadApk" -> {
-                        val uri = githubUri(call.argument<String>("url"), result) ?: return@setMethodCallHandler
+                    "updateDirectory" -> result.success(File(cacheDir, "updates").absolutePath)
+                    "installApk" -> {
                         try {
-                            getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                                ?.listFiles { file -> file.name.startsWith("lumo-update-") && file.extension == "apk" }
-                                ?.forEach { file -> file.delete() }
-                            val request = DownloadManager.Request(uri)
-                                .setTitle("Lumo 更新")
-                                .setDescription("正在下载最新版本")
-                                .setMimeType("application/vnd.android.package-archive")
-                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                                .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "lumo-update-${System.currentTimeMillis()}.apk")
-                            result.success(downloadManager.enqueue(request))
-                        } catch (error: Exception) {
-                            result.error("download_failed", "系统下载服务无法启动（${error.javaClass.simpleName}）：${error.message ?: "未知错误"}", null)
-                        }
-                    }
-                    "downloadStatus" -> {
-                        val id = call.argument<Number>("id")?.toLong()
-                        if (id == null) {
-                            result.error("invalid_id", "Missing download id", null)
-                            return@setMethodCallHandler
-                        }
-                        downloadManager.query(DownloadManager.Query().setFilterById(id)).use { cursor ->
-                            if (!cursor.moveToFirst()) {
-                                result.error("download_missing", "Download not found", null)
+                            val path = call.argument<String>("path")
+                            val apk = path?.let(::File)
+                            val updateDirectory = File(cacheDir, "updates").canonicalFile
+                            if (apk == null || !apk.isFile || apk.canonicalFile.parentFile != updateDirectory) {
+                                result.error("install_missing", "安装包不存在或未下载完成。", null)
                                 return@setMethodCallHandler
                             }
-                            val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-                            result.success(mapOf(
-                                "state" to when (status) {
-                                    DownloadManager.STATUS_SUCCESSFUL -> "success"
-                                    DownloadManager.STATUS_FAILED -> "failed"
-                                    else -> "downloading"
-                                },
-                                "received" to cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)),
-                                "total" to cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)),
-                                "reason" to if (status == DownloadManager.STATUS_FAILED) cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)) else null,
-                            ))
-                        }
-                    }
-                    "installDownloadedApk" -> {
-                        val id = call.argument<Number>("id")?.toLong()
-                        val apk = id?.let(downloadManager::getUriForDownloadedFile)
-                        if (apk == null) {
-                            result.error("install_missing", "安装包不存在或未下载完成。", null)
-                            return@setMethodCallHandler
-                        }
-                        try {
-                            startActivity(Intent(Intent.ACTION_VIEW, apk)
-                                .setDataAndType(apk, "application/vnd.android.package-archive")
+                            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
+                            startActivity(Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(uri, "application/vnd.android.package-archive")
                                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
                             result.success(null)
                         } catch (error: Exception) {
@@ -197,13 +158,6 @@ class MainActivity : FlutterActivity() {
         pendingSpeechResult?.error(code, message, null)
         pendingSpeechResult = null
         stopSpeechAfterPermission = false
-    }
-
-    private fun githubUri(value: String?, result: MethodChannel.Result): Uri? {
-        val uri = value?.let(Uri::parse)
-        if (uri?.scheme == "https" && uri.host == "github.com") return uri
-        result.error("invalid_url", "Only GitHub APK URLs are allowed", null)
-        return null
     }
 
     private fun finishSpeech(text: String) {

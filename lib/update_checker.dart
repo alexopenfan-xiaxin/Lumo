@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -17,79 +17,34 @@ class ReleaseUpdate {
   final Uri url;
 }
 
-class UpdateDownloadStatus {
-  const UpdateDownloadStatus({
-    required this.state,
-    required this.received,
-    required this.total,
-    this.reason,
-  });
-
-  final String state;
-  final int received;
-  final int total;
-  final int? reason;
-
-  bool get isComplete => state == 'success';
-  bool get isFailed => state == 'failed';
-  double? get progress =>
-      total > 0 ? (received / total).clamp(0, 1).toDouble() : null;
-
-  factory UpdateDownloadStatus.fromMap(Map<Object?, Object?> map) =>
-      UpdateDownloadStatus(
-        state: map['state']! as String,
-        received: map['received']! as int,
-        total: map['total']! as int,
-        reason: map['reason'] as int?,
-      );
-}
-
 class UpdateChecker {
-  static const _latestRelease =
-      'https://api.github.com/repos/alexopenfan-xiaxin/Lumo/releases/latest';
+  static const _latestDownload =
+      'https://github.com/alexopenfan-xiaxin/Lumo/releases/latest/download/app-release.apk';
+  static const _maxApkBytes = 250 * 1024 * 1024;
   static const _channel = MethodChannel('app.lumo.companion/external_url');
 
   Future<ReleaseUpdate?> check() async {
-    final client = HttpClient();
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..userAgent = 'Lumo/$appVersion';
     try {
-      final request = await client.getUrl(Uri.parse(_latestRelease));
-      request.headers.set(
-        HttpHeaders.acceptHeader,
-        'application/vnd.github+json',
+      final latest = Uri.parse(_latestDownload);
+      final request = await client.getUrl(latest);
+      request.followRedirects = false;
+      final response = await request.close().timeout(
+        const Duration(seconds: 20),
       );
-      request.headers.set(HttpHeaders.userAgentHeader, 'Lumo/$appVersion');
-      final response = await request.close();
-      if (response.statusCode != HttpStatus.ok) {
-        throw const HttpException('Unable to check for updates');
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      await response.drain<void>();
+      if (!const {301, 302, 303, 307, 308}.contains(response.statusCode) ||
+          location == null) {
+        throw HttpException('检查更新失败（HTTP ${response.statusCode}）');
       }
-      final body = jsonDecode(await utf8.decoder.bind(response).join());
-      if (body is! Map<String, dynamic>) {
-        throw const FormatException('Invalid release');
-      }
-      final tag = body['tag_name'];
-      final assets = body['assets'];
-      if (tag is! String || assets is! List) {
-        throw const FormatException('Invalid release');
-      }
-      final asset = assets
-          .whereType<Map<String, dynamic>>()
-          .where((item) => item['name'] == 'app-release.apk')
-          .firstOrNull;
-      final url = asset?['browser_download_url'];
-      if (url is! String) throw const FormatException('Missing APK');
-      final match = RegExp(r'^v(\d+\.\d+\.\d+)-build\.(\d+)$').firstMatch(tag);
-      final releaseUrl = Uri.tryParse(url);
-      if (match == null ||
-          releaseUrl == null ||
-          releaseUrl.scheme != 'https' ||
-          releaseUrl.host != 'github.com') {
-        throw const FormatException('Invalid release');
-      }
-      final version = match.group(1)!;
-      final build = int.parse(match.group(2)!);
-      return isNewerRelease(version, build, appVersion, appReleaseBuild)
-          ? ReleaseUpdate(version: version, build: build, url: releaseUrl)
-          : null;
+      return releaseFromDownloadUrl(
+        latest.resolve(location),
+        appVersion,
+        appReleaseBuild,
+      );
     } finally {
       client.close(force: true);
     }
@@ -101,25 +56,98 @@ class UpdateChecker {
   Future<void> openInstallSettings() =>
       _channel.invokeMethod<void>('openInstallSettings');
 
-  Future<int> startDownload(Uri url) async =>
-      await _channel.invokeMethod<int>('downloadApk', {
-        'url': url.toString(),
-      }) ??
-      (throw PlatformException(code: 'download_failed'));
+  Future<String> updateDirectory() async =>
+      await _channel.invokeMethod<String>('updateDirectory') ??
+      (throw PlatformException(
+        code: 'download_path_missing',
+        message: '无法创建更新目录。',
+      ));
 
-  Future<UpdateDownloadStatus> downloadStatus(int id) async {
-    final status = await _channel.invokeMapMethod<Object?, Object?>(
-      'downloadStatus',
-      {'id': id},
-    );
-    if (status == null) {
-      throw PlatformException(code: 'download_missing', message: '无法读取更新下载状态。');
+  Future<File> download(
+    Uri url,
+    void Function(int received, int total) onProgress,
+  ) async {
+    final directory = Directory(await updateDirectory());
+    await directory.create(recursive: true);
+    final apk = File('${directory.path}${Platform.pathSeparator}lumo-update.apk');
+    final partial = File('${apk.path}.part');
+    if (await partial.exists()) await partial.delete();
+
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..userAgent = 'Lumo/$appVersion';
+    IOSink? sink;
+    try {
+      final request = await client.getUrl(url);
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/vnd.android.package-archive, application/octet-stream',
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 20),
+      );
+      if (response.statusCode != HttpStatus.ok) {
+        await response.drain<void>();
+        throw HttpException('更新下载失败（HTTP ${response.statusCode}）');
+      }
+      final total = response.contentLength;
+      if (total > _maxApkBytes) throw const HttpException('更新包超过 250 MB 限制');
+
+      sink = partial.openWrite();
+      var received = 0;
+      await for (final chunk in response.timeout(const Duration(seconds: 30))) {
+        received += chunk.length;
+        if (received > _maxApkBytes) {
+          throw const HttpException('更新包超过 250 MB 限制');
+        }
+        sink.add(chunk);
+        onProgress(received, total);
+      }
+      await sink.close();
+      sink = null;
+      if (received == 0 || (total > 0 && received != total)) {
+        throw const HttpException('更新包下载不完整');
+      }
+      final signature = await partial.openRead(0, 4).fold<List<int>>(
+        <int>[],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      if (signature.length != 4 ||
+          signature[0] != 0x50 ||
+          signature[1] != 0x4b ||
+          signature[2] != 0x03 ||
+          signature[3] != 0x04) {
+        throw const FormatException('下载内容不是有效的 APK');
+      }
+      if (await apk.exists()) await apk.delete();
+      return partial.rename(apk.path);
+    } finally {
+      await sink?.close();
+      if (await partial.exists()) await partial.delete();
+      client.close(force: true);
     }
-    return UpdateDownloadStatus.fromMap(status);
   }
 
-  Future<void> installDownloadedApk(int id) =>
-      _channel.invokeMethod<void>('installDownloadedApk', {'id': id});
+  Future<void> installApk(String path) =>
+      _channel.invokeMethod<void>('installApk', {'path': path});
+}
+
+ReleaseUpdate? releaseFromDownloadUrl(
+  Uri url,
+  String installedVersion,
+  int installedBuild,
+) {
+  final match = RegExp(
+    r'^/alexopenfan-xiaxin/Lumo/releases/download/v(\d+\.\d+\.\d+)-build\.(\d+)/app-release\.apk$',
+  ).firstMatch(url.path);
+  if (url.scheme != 'https' || url.host != 'github.com' || match == null) {
+    throw const FormatException('Invalid release download URL');
+  }
+  final version = match.group(1)!;
+  final build = int.parse(match.group(2)!);
+  return isNewerRelease(version, build, installedVersion, installedBuild)
+      ? ReleaseUpdate(version: version, build: build, url: url)
+      : null;
 }
 
 int compareVersions(String left, String right) {

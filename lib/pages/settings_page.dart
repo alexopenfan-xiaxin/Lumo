@@ -321,11 +321,11 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
         ).showSnackBar(const SnackBar(content: Text('网络不可用，暂时无法检查更新。')));
       }
-    } on HttpException {
+    } on HttpException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('更新服务暂不可用，请稍后再试。')));
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } on FormatException {
       if (mounted) {
@@ -352,7 +352,24 @@ class _ProfilePageState extends State<ProfilePage> {
           SnackBar(content: Text(error.message ?? '无法完成更新，请稍后再试。')),
         );
       }
+    } on SocketException {
+      _showUpdateError('更新下载连接失败，请检查代理或网络后重试。');
+    } on TimeoutException {
+      _showUpdateError('更新下载超时，请切换网络后重试。');
+    } on HttpException catch (error) {
+      _showUpdateError(error.message);
+    } on FormatException {
+      _showUpdateError('下载内容不是有效的安装包。');
+    } on FileSystemException {
+      _showUpdateError('无法保存更新包，请检查存储空间。');
+    } on Exception {
+      _showUpdateError('无法完成更新，请稍后再试。');
     }
+  }
+
+  void _showUpdateError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _ensureInstallPermission() async {
@@ -382,7 +399,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _downloadUpdate(ReleaseUpdate update) async {
     final checker = UpdateChecker();
-    final progress = ValueNotifier<double?>(null);
+    final progress = ValueNotifier<(int, int)>((0, -1));
     var dialogOpen = true;
     unawaited(
       showDialog<void>(
@@ -392,43 +409,40 @@ class _ProfilePageState extends State<ProfilePage> {
           canPop: false,
           child: AlertDialog(
             title: const Text('下载更新'),
-            content: ValueListenableBuilder<double?>(
+            content: ValueListenableBuilder<(int, int)>(
               valueListenable: progress,
-              builder: (context, value, child) => Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LinearProgressIndicator(value: value),
-                  const SizedBox(height: 16),
-                  Text(
-                    value == null
-                        ? '正在准备下载…'
-                        : '${(value * 100).toStringAsFixed(0)}%',
-                  ),
-                ],
-              ),
+              builder: (context, value, child) {
+                final (received, total) = value;
+                final fraction = total > 0
+                    ? (received / total).clamp(0, 1).toDouble()
+                    : null;
+                final label = fraction != null
+                    ? '${(fraction * 100).toStringAsFixed(0)}%'
+                    : received > 0
+                    ? '已下载 ${(received / 1024 / 1024).toStringAsFixed(1)} MB'
+                    : '正在连接下载服务…';
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(value: fraction),
+                    const SizedBox(height: 16),
+                    Text(label),
+                  ],
+                );
+              },
             ),
           ),
         ),
       ),
     );
     try {
-      final id = await checker.startDownload(update.url);
-      while (mounted) {
-        final status = await checker.downloadStatus(id);
-        progress.value = status.progress;
-        if (status.isFailed) {
-          throw PlatformException(
-            code: 'download_failed',
-            message: '更新下载失败（系统原因 ${status.reason ?? '未知'}）。',
-          );
-        }
-        if (status.isComplete) break;
-        await Future<void>.delayed(const Duration(milliseconds: 350));
-      }
+      final apk = await checker.download(update.url, (received, total) {
+        if (mounted) progress.value = (received, total);
+      });
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       dialogOpen = false;
-      await checker.installDownloadedApk(id);
+      await checker.installApk(apk.path);
     } finally {
       if (dialogOpen && mounted) {
         Navigator.of(context, rootNavigator: true).pop();
