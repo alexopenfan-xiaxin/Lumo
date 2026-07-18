@@ -55,17 +55,19 @@
       </form>
     </section>
     <section id="invite-panel" hidden>
-      <h2>一次性邀请码</h2>
-      <p class="intro">每枚邀请码只能注册一个账号。</p>
-      <div class="ticket"><small>LUMO ACCESS</small><div id="code" aria-live="polite">生成中…</div></div>
-      <div class="actions"><button id="copy" type="button">复制邀请码</button><button id="generate" class="secondary" type="button">再生成一枚</button></div>
+      <h2>邀请码管理</h2>
+      <p class="intro">按需生成邀请码，每枚只能注册一个账号。</p>
+      <div class="ticket"><small>LUMO ACCESS</small><div id="code" aria-live="polite">暂未生成</div></div>
+      <div class="actions"><button id="generate" type="button">获取一枚</button><button id="copy" class="secondary" type="button" disabled>复制邀请码</button></div>
+      <div class="actions"><button id="generate-batch" class="secondary" type="button">批量获取</button><button id="download" class="secondary" type="button" disabled>下载批量邀请码</button></div>
       <p id="invite-error" class="error" role="alert"></p>
       <div class="history"><h3>最近生成</h3><ul id="history"></ul></div>
     </section>
   </main>
   <script>
     const $ = (id) => document.getElementById(id);
-    let token = sessionStorage.getItem('lumo-admin-token');
+    let token = localStorage.getItem('lumo-admin-token');
+    let batchCodes = [];
 
     async function api(path, options = {}) {
       const response = await fetch(path, {headers:{'Content-Type':'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {})}, ...options});
@@ -74,15 +76,27 @@
       return body;
     }
 
-    async function generate() {
+    function setPanel(open) {
+      $('login-panel').hidden = open;
+      $('invite-panel').hidden = !open;
+    }
+
+    async function generate(count = 1) {
       $('invite-error').textContent = '';
       $('generate').disabled = true;
+      $('generate-batch').disabled = true;
       try {
-        const {code} = await api('/admin/invites', {method:'POST'});
-        $('code').textContent = code;
+        const {codes} = await api('/admin/invites', {method:'POST', body:JSON.stringify({count})});
+        batchCodes = codes;
+        $('code').textContent = count === 1 ? codes[0] : `已生成 ${codes.length} 枚邀请码`;
+        $('copy').disabled = count !== 1;
+        $('download').disabled = count === 1;
         await history();
       } catch (error) { $('invite-error').textContent = error.message; }
-      finally { $('generate').disabled = false; }
+      finally {
+        $('generate').disabled = false;
+        $('generate-batch').disabled = false;
+      }
     }
 
     async function history() {
@@ -102,20 +116,45 @@
         const body = await api('/auth/login', {method:'POST', body:JSON.stringify({username:$('username').value, password:$('password').value})});
         if (body.role !== 'admin') throw new Error('该账号没有邀请码管理权限。');
         token = body.token;
-        sessionStorage.setItem('lumo-admin-token', token);
-        $('login-panel').hidden = true;
-        $('invite-panel').hidden = false;
-        await generate();
+        localStorage.setItem('lumo-admin-token', token);
+        setPanel(true);
+        await history();
       } catch (error) { $('login-error').textContent = error.message; }
       finally { $('login-button').disabled = false; }
     });
 
     $('copy').addEventListener('click', async () => {
-      await navigator.clipboard.writeText($('code').textContent);
+      await navigator.clipboard.writeText(batchCodes[0]);
       $('copy').textContent = '已复制';
       setTimeout(() => $('copy').textContent = '复制邀请码', 1200);
     });
-    $('generate').addEventListener('click', generate);
+    $('generate').addEventListener('click', () => generate());
+    $('generate-batch').addEventListener('click', async () => {
+      const value = window.prompt('请输入生成数量（1–100）', '10');
+      if (value === null) return;
+      const count = Number(value);
+      if (!Number.isInteger(count) || count < 1 || count > 100) {
+        $('invite-error').textContent = '请输入 1–100 之间的整数。';
+        return;
+      }
+      await generate(count);
+    });
+    $('download').addEventListener('click', () => {
+      const file = new Blob([batchCodes.join('\n') + '\n'], {type:'text/plain;charset=utf-8'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(file);
+      link.download = 'lumo-invites.txt';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+    if (token) {
+      setPanel(true);
+      history().catch(() => {
+        localStorage.removeItem('lumo-admin-token');
+        token = null;
+        setPanel(false);
+      });
+    }
   </script>
 </body>
 </html>

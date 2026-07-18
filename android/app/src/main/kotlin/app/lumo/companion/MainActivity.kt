@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var pendingSpeechResult: MethodChannel.Result? = null
     private var startSpeechAfterPermission = false
+    private var stopSpeechAfterPermission = false
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE || intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != pendingDownloadId) return
@@ -103,20 +104,27 @@ class MainActivity : FlutterActivity() {
             }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.lumo.companion/speech")
             .setMethodCallHandler { call, result ->
-                if (call.method != "listen") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
-                }
-                if (pendingSpeechResult != null) {
-                    result.error("busy", "正在倾听，请稍候。", null)
-                    return@setMethodCallHandler
-                }
-                pendingSpeechResult = result
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                    startSpeechAfterPermission = true
-                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), SPEECH_PERMISSION_REQUEST)
-                } else {
-                    startSpeechRecognition()
+                when (call.method) {
+                    "start" -> {
+                        if (pendingSpeechResult != null) {
+                            result.error("busy", "正在倾听，请稍候。", null)
+                            return@setMethodCallHandler
+                        }
+                        pendingSpeechResult = result
+                        stopSpeechAfterPermission = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            startSpeechAfterPermission = true
+                            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), SPEECH_PERMISSION_REQUEST)
+                        } else {
+                            startSpeechRecognition()
+                        }
+                    }
+                    "stop" -> {
+                        stopSpeechAfterPermission = true
+                        speechRecognizer?.stopListening()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
                 }
             }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.lumo.companion/device")
@@ -136,13 +144,17 @@ class MainActivity : FlutterActivity() {
         if (requestCode != SPEECH_PERMISSION_REQUEST || !startSpeechAfterPermission) return
         startSpeechAfterPermission = false
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startSpeechRecognition()
+            if (stopSpeechAfterPermission) finishSpeech("") else startSpeechRecognition()
         } else {
             finishSpeechError("permission_denied", "请允许麦克风权限后再使用语音输入。")
         }
     }
 
     private fun startSpeechRecognition() {
+        if (stopSpeechAfterPermission) {
+            finishSpeech("")
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             finishSpeechError("unavailable", "这台设备暂不支持语音识别。")
             return
@@ -152,11 +164,16 @@ class MainActivity : FlutterActivity() {
             setRecognitionListener(object : RecognitionListener {
                 override fun onResults(results: Bundle) {
                     val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                    pendingSpeechResult?.success(text)
-                    pendingSpeechResult = null
+                    finishSpeech(text)
                 }
 
-                override fun onError(error: Int) = finishSpeechError("recognition_failed", if (error == SpeechRecognizer.ERROR_NO_MATCH) "没有听清，请再试一次。" else "语音识别失败，请稍后再试。")
+                override fun onError(error: Int) {
+                    if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || error == SpeechRecognizer.ERROR_CLIENT) {
+                        finishSpeech("")
+                    } else {
+                        finishSpeechError("recognition_failed", "语音识别服务暂时不可用，请检查网络或系统语音服务。")
+                    }
+                }
                 override fun onReadyForSpeech(params: Bundle) = Unit
                 override fun onBeginningOfSpeech() = Unit
                 override fun onRmsChanged(rmsdB: Float) = Unit
@@ -177,5 +194,12 @@ class MainActivity : FlutterActivity() {
     private fun finishSpeechError(code: String, message: String) {
         pendingSpeechResult?.error(code, message, null)
         pendingSpeechResult = null
+        stopSpeechAfterPermission = false
+    }
+
+    private fun finishSpeech(text: String) {
+        pendingSpeechResult?.success(text)
+        pendingSpeechResult = null
+        stopSpeechAfterPermission = false
     }
 }

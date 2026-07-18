@@ -25,6 +25,7 @@ class _ChatPageState extends State<ChatPage> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _aiChatClient = AiChatClient();
+  final _speechInput = SpeechInput();
   late final ChatStore _store;
   late List<_ChatMessage> _messages = [_ChatMessage(id: 'opening', text: widget.companion.openingMessage, fromUser: false)];
   Conversation? _conversation;
@@ -32,6 +33,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isReplying = false;
   bool _isLoadingConversation = false;
   bool _isListening = false;
+  bool _isVoiceMode = false;
 
   @override
   void initState() {
@@ -238,6 +240,74 @@ class _ChatPageState extends State<ChatPage> {
   AiChatMessage _asAiMessage(StoredMessage message) =>
       AiChatMessage(role: message.role == MessageRole.user ? 'user' : 'assistant', content: message.content);
 
+  Future<void> _showSessions() async {
+    Future<List<Conversation>> sessions = _store.conversations(widget.companion.id);
+    final selected = await showModalBottomSheet<Conversation>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: FutureBuilder<List<Conversation>>(
+            future: sessions,
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? const <Conversation>[];
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text('会话', style: Theme.of(context).textTheme.titleLarge)),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final conversation = await _store.createConversation(widget.companion.id);
+                            if (sheetContext.mounted) Navigator.pop(sheetContext, conversation);
+                          },
+                          icon: const Icon(Icons.add_comment_outlined),
+                          label: const Text('新建'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (snapshot.connectionState != ConnectionState.done)
+                      const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final conversation = items[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(conversation.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              subtitle: Text(_timeLabel(conversation.updatedAt)),
+                              onTap: () => Navigator.pop(sheetContext, conversation),
+                              trailing: IconButton(
+                                tooltip: '删除会话',
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                onPressed: () async {
+                                  await _store.deleteConversation(conversation.id);
+                                  setSheetState(() => sessions = _store.conversations(widget.companion.id));
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (selected != null) await _loadConversation(conversation: selected);
+  }
+
   Future<void> _showMemories() async {
     Future<List<MemoryEntry>> memoryFuture = _store.memories(widget.companion.id);
     await showModalBottomSheet<void>(
@@ -341,11 +411,11 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted) setState(() => _pendingMemories = pending);
   }
 
-  Future<void> _listen() async {
+  Future<void> _beginSpeech() async {
     if (_isListening) return;
     setState(() => _isListening = true);
     try {
-      final text = await SpeechInput().listen();
+      final text = await _speechInput.start();
       if (text.isNotEmpty && mounted) {
         _inputController.text = text;
         _inputController.selection = TextSelection.collapsed(offset: text.length);
@@ -356,6 +426,13 @@ class _ChatPageState extends State<ChatPage> {
     } finally {
       if (mounted) setState(() => _isListening = false);
     }
+  }
+
+  void _endSpeech() => unawaited(_speechInput.stop());
+
+  String _timeLabel(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   Future<bool> _confirm(String title, String content) async =>
@@ -427,6 +504,8 @@ class _ChatPageState extends State<ChatPage> {
       ),
       actions: [
         if (widget.companion.isAvailable)
+          IconButton(tooltip: '会话管理', onPressed: _showSessions, icon: const Icon(Icons.forum_outlined)),
+        if (widget.companion.isAvailable)
           IconButton(tooltip: '${widget.companion.name}的记忆', onPressed: _showMemories, icon: const Icon(Icons.psychology_outlined)),
       ],
     ),
@@ -478,21 +557,45 @@ class _ChatPageState extends State<ChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   IconButton(
-                    tooltip: _isListening ? '正在倾听' : '语音输入',
-                    onPressed: _isReplying || _isListening ? null : _listen,
-                    icon: Icon(_isListening ? Icons.hearing_rounded : Icons.mic_none_rounded),
+                    tooltip: _isVoiceMode ? '切换到文字输入' : '切换到语音输入',
+                    onPressed: _isReplying
+                        ? null
+                        : () {
+                            if (_isListening) _endSpeech();
+                            setState(() => _isVoiceMode = !_isVoiceMode);
+                          },
+                    icon: Icon(_isVoiceMode ? Icons.keyboard_outlined : Icons.mic_none_rounded),
                   ),
                   Expanded(
-                    child: TextField(
-                      controller: _inputController,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: 4000,
-                      textInputAction: TextInputAction.send,
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: _send,
-                      decoration: const InputDecoration(hintText: '说说此刻的感受…', counterText: ''),
-                    ),
+                    child: _isVoiceMode
+                        ? Semantics(
+                            button: true,
+                            label: _isListening ? '松开结束语音输入' : '按住说话',
+                            child: GestureDetector(
+                              onLongPressStart: (_) => unawaited(_beginSpeech()),
+                              onLongPressEnd: (_) => _endSpeech(),
+                              onLongPressCancel: _endSpeech,
+                              child: Container(
+                                height: 48,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _isListening ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.16) : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(_isListening ? '松开 结束语音输入' : '按住 说话'),
+                              ),
+                            ),
+                          )
+                        : TextField(
+                            controller: _inputController,
+                            minLines: 1,
+                            maxLines: 4,
+                            maxLength: 4000,
+                            textInputAction: TextInputAction.send,
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: _send,
+                            decoration: const InputDecoration(hintText: '说说此刻的感受…', counterText: ''),
+                          ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
