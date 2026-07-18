@@ -46,9 +46,9 @@ class UpdateChecker {
     }
   }
 
-  Future<String> downloadAndInstall(Uri url) async => await _channel.invokeMethod<String>('downloadApk', url.toString()) ?? 'failed';
+  Future<String> downloadAndInstall(Uri url) async => await _channel.invokeMethod<String>('downloadApk', {'url': url.toString()}) ?? 'failed';
 
-  Future<void> openInBrowser(Uri url) => _channel.invokeMethod<void>('openUrl', url.toString());
+  Future<void> openInBrowser(Uri url) => _channel.invokeMethod<void>('openUrl', {'url': url.toString()});
 }
 
 int compareVersions(String left, String right) {

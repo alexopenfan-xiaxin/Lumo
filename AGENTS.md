@@ -6,6 +6,8 @@ Do not run `flutter` or `dart` commands on this machine. This includes `flutter 
 
 When this restriction prevents local compilation, never guess Flutter API names or named parameters. Treat the Flutter version resolved by the remote workflow as the compatibility source of truth; verify platform-facing APIs against that SDK's documentation/source before committing, then use remote `flutter analyze` as the first gate before tests or release work. For example, `SystemUiOverlayStyle` uses `systemNavigationBarColor`, not `navigationBarColor`.
 
+Keep every `MethodChannel` argument shape identical on Dart and Android: calls read with `call.argument("name")` must send a named map, and each platform-facing channel change needs a focused test that asserts method names and arguments.
+
 Do not create a Git branch unless the user explicitly asks for one. Work on the current branch, or on `main` when the requested change is to be released directly.
 
 If GitHub Git over HTTPS is unavailable once, publish through the authenticated GitHub API instead of retrying the Git transport.
