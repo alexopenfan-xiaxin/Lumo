@@ -22,6 +22,7 @@ class LumoShell extends StatefulWidget {
 class _LumoShellState extends State<LumoShell> {
   int _index = 0;
   bool _draggingSelection = false;
+  final _dockKey = GlobalKey();
 
   static const _destinations = [
     _DockDestination(label: '首页', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
@@ -35,6 +36,11 @@ class _LumoShellState extends State<LumoShell> {
   }
 
   int _indexAt(double position, double width) => (position / (width / _destinations.length)).floor().clamp(0, _destinations.length - 1).toInt();
+
+  double _dockPosition(Offset globalPosition) {
+    final box = _dockKey.currentContext!.findRenderObject()! as RenderBox;
+    return box.globalToLocal(globalPosition).dx;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,9 +65,10 @@ class _LumoShellState extends State<LumoShell> {
           selectedIndex: _index,
           duration: duration,
           onSelected: _select,
-          onDragStart: (position, width) => _draggingSelection = _indexAt(position, width) == _index,
+          dragKey: _dockKey,
+          onDragStart: (position, width) => _draggingSelection = _indexAt(_dockPosition(position), width) == _index,
           onDragUpdate: (position, width) {
-            if (_draggingSelection) _select(_indexAt(position, width));
+            if (_draggingSelection) _select(_indexAt(_dockPosition(position), width));
           },
           onDragEnd: () => _draggingSelection = false,
         ),
@@ -76,6 +83,7 @@ class _FloatingDock extends StatelessWidget {
     required this.selectedIndex,
     required this.duration,
     required this.onSelected,
+    required this.dragKey,
     required this.onDragStart,
     required this.onDragUpdate,
     required this.onDragEnd,
@@ -85,8 +93,9 @@ class _FloatingDock extends StatelessWidget {
   final int selectedIndex;
   final Duration duration;
   final ValueChanged<int> onSelected;
-  final void Function(double position, double width) onDragStart;
-  final void Function(double position, double width) onDragUpdate;
+  final GlobalKey dragKey;
+  final void Function(Offset position, double width) onDragStart;
+  final void Function(Offset position, double width) onDragUpdate;
   final VoidCallback onDragEnd;
 
   @override
@@ -100,9 +109,10 @@ class _FloatingDock extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
           child: GestureDetector(
+            key: dragKey,
             behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (details) => onDragStart(details.localPosition.dx, constraints.maxWidth),
-            onHorizontalDragUpdate: (details) => onDragUpdate(details.localPosition.dx, constraints.maxWidth),
+            onHorizontalDragStart: (details) => onDragStart(details.globalPosition, constraints.maxWidth),
+            onHorizontalDragUpdate: (details) => onDragUpdate(details.globalPosition, constraints.maxWidth),
             onHorizontalDragEnd: (_) => onDragEnd(),
             onHorizontalDragCancel: onDragEnd,
             child: DecoratedBox(
