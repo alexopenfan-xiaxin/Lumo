@@ -11,8 +11,11 @@ import '../update_checker.dart';
 import '../widgets.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage(
-      {required this.themeMode, required this.onThemeModeChanged, super.key});
+  const ProfilePage({
+    required this.themeMode,
+    required this.onThemeModeChanged,
+    super.key,
+  });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -57,11 +60,13 @@ class _ProfilePageState extends State<ProfilePage> {
           content: Text(account.isMember ? '永久会员' : '普通用户 · 每日 100 条消息'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('关闭')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('退出登录')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('退出登录'),
+            ),
           ],
         ),
       );
@@ -80,9 +85,10 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                  leading: const Icon(Icons.login_rounded),
-                  title: const Text('登录'),
-                  onTap: () => Navigator.pop(context, false)),
+                leading: const Icon(Icons.login_rounded),
+                title: const Text('登录'),
+                onTap: () => Navigator.pop(context, false),
+              ),
               ListTile(
                 leading: const Icon(Icons.person_add_alt_rounded),
                 title: const Text('邀请注册'),
@@ -113,31 +119,39 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                  controller: username,
-                  autofocus: true,
-                  maxLength: 24,
-                  decoration: const InputDecoration(labelText: '账号')),
+                controller: username,
+                autofocus: true,
+                maxLength: 24,
+                decoration: const InputDecoration(labelText: '账号'),
+              ),
               TextField(
-                  controller: password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: '密码')),
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '密码'),
+              ),
               if (register)
                 TextField(
-                    controller: invite,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(labelText: '邀请码')),
+                  controller: invite,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: '邀请码'),
+                ),
               if (error != null)
                 Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(error!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error))),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
             ],
           ),
           actions: [
             TextButton(
-                onPressed: loading ? null : () => Navigator.pop(context),
-                child: const Text('取消')),
+              onPressed: loading ? null : () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
             FilledButton(
               onPressed: loading
                   ? null
@@ -148,10 +162,15 @@ class _ProfilePageState extends State<ProfilePage> {
                       });
                       try {
                         final result = register
-                            ? await _authClient.register(username.text.trim(),
-                                password.text, invite.text.trim())
+                            ? await _authClient.register(
+                                username.text.trim(),
+                                password.text,
+                                invite.text.trim(),
+                              )
                             : await _authClient.login(
-                                username.text.trim(), password.text);
+                                username.text.trim(),
+                                password.text,
+                              );
                         if (dialogContext.mounted)
                           Navigator.pop(dialogContext, result);
                       } on AuthException catch (exception) {
@@ -173,12 +192,14 @@ class _ProfilePageState extends State<ProfilePage> {
     if (account != null && mounted) setState(() => _account = account);
   }
 
-  Future<void> _selectPreference(
-      {required String title,
-      required List<String> values,
-      required bool isPersonality}) async {
-    final current =
-        isPersonality ? _preferences.personality : _preferences.topic;
+  Future<void> _selectPreference({
+    required String title,
+    required List<String> values,
+    required bool isPersonality,
+  }) async {
+    final current = isPersonality
+        ? _preferences.personality
+        : _preferences.topic;
     final value = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -189,16 +210,19 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleLarge)),
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
               RadioGroup<String>(
                 groupValue: current,
                 onChanged: (selected) => Navigator.pop(context, selected),
                 child: Column(
                   children: [
                     for (final item in values)
-                      RadioListTile<String>(value: item, title: Text(item))
+                      RadioListTile<String>(value: item, title: Text(item)),
                   ],
                 ),
               ),
@@ -217,44 +241,49 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _showPrivacy() => showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('隐私说明'),
-          content: const Text('Lumo 会妥善处理你的账号与对话数据。对话和记忆由你管理，你可以随时删除。'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('知道了'))
-          ],
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('隐私说明'),
+      content: const Text('Lumo 会妥善处理你的账号与对话数据。对话和记忆由你管理，你可以随时删除。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('知道了'),
         ),
-      );
+      ],
+    ),
+  );
 
   Future<void> _showLicenses() => showModalBottomSheet<void>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('开源许可', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text('Lumo 使用以下开源组件；许可文本由各组件的官方仓库维护。',
-                    style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 16),
-                const _LicenseLine(
-                    name: 'Flutter / Dart', license: 'BSD 3-Clause'),
-                const _LicenseLine(
-                    name: 'flutter_animate、flutter_svg、sqflite',
-                    license: 'MIT'),
-                const _LicenseLine(
-                    name: 'path、sqflite_common_ffi', license: 'BSD / MIT'),
-              ],
+    context: context,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('开源许可', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Lumo 使用以下开源组件；许可文本由各组件的官方仓库维护。',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-          ),
+            const SizedBox(height: 16),
+            const _LicenseLine(name: 'Flutter / Dart', license: 'BSD 3-Clause'),
+            const _LicenseLine(
+              name: 'flutter_animate、flutter_svg、sqflite',
+              license: 'MIT',
+            ),
+            const _LicenseLine(
+              name: 'path、sqflite_common_ffi',
+              license: 'BSD / MIT',
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   Future<void> _checkForUpdate() async {
     final messenger = ScaffoldMessenger.of(context);
@@ -272,8 +301,9 @@ class _ProfilePageState extends State<ProfilePage> {
           content: const Text('将在应用内下载 APK，下载完成后会打开系统安装器。'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('稍后再说')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('稍后再说'),
+            ),
             FilledButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -286,20 +316,24 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     } on SocketException {
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('网络不可用，暂时无法检查更新。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('网络不可用，暂时无法检查更新。')));
     } on HttpException {
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('更新服务暂不可用，请稍后再试。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('更新服务暂不可用，请稍后再试。')));
     } on FormatException {
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('更新信息无效，请稍后再试。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('更新信息无效，请稍后再试。')));
     } on Exception {
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('暂时无法检查更新，请稍后再试。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂时无法检查更新，请稍后再试。')));
     }
   }
 
@@ -310,7 +344,8 @@ class _ProfilePageState extends State<ProfilePage> {
     } on PlatformException catch (error) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message ?? '无法完成更新，请稍后再试。')));
+          SnackBar(content: Text(error.message ?? '无法完成更新，请稍后再试。')),
+        );
     }
   }
 
@@ -325,11 +360,13 @@ class _ProfilePageState extends State<ProfilePage> {
         content: const Text('安装更新需要允许 Lumo 安装未知应用。开启后请重新检查更新。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('去设置')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('去设置'),
+          ),
         ],
       ),
     );
@@ -356,9 +393,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   LinearProgressIndicator(value: value),
                   const SizedBox(height: 16),
-                  Text(value == null
-                      ? '正在准备下载…'
-                      : '${(value * 100).toStringAsFixed(0)}%'),
+                  Text(
+                    value == null
+                        ? '正在准备下载…'
+                        : '${(value * 100).toStringAsFixed(0)}%',
+                  ),
                 ],
               ),
             ),
@@ -373,8 +412,9 @@ class _ProfilePageState extends State<ProfilePage> {
         progress.value = status.progress;
         if (status.isFailed)
           throw PlatformException(
-              code: 'download_failed',
-              message: '更新下载失败（系统原因 ${status.reason ?? '未知'}）。');
+            code: 'download_failed',
+            message: '更新下载失败（系统原因 ${status.reason ?? '未知'}）。',
+          );
         if (status.isComplete) break;
         await Future<void>.delayed(const Duration(milliseconds: 350));
       }
@@ -390,39 +430,41 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _showAbout() => showModalBottomSheet<void>(
-        context: context,
-        builder: (sheetContext) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const LumoMark(size: 56),
-                const SizedBox(height: 12),
-                Text('Lumo',
-                    style: Theme.of(sheetContext).textTheme.headlineSmall),
-                const SizedBox(height: 4),
-                Text(appVersionLabel,
-                    style: Theme.of(sheetContext).textTheme.bodyMedium),
-                const SizedBox(height: 16),
-                ListTile(
-                  minTileHeight: 56,
-                  leading: const Icon(Icons.system_update_outlined),
-                  title: const Text('检查更新'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _checkForUpdate();
-                  },
-                ),
-                const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text('© 2026 Lumo contributors')),
-              ],
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const LumoMark(size: 56),
+            const SizedBox(height: 12),
+            Text('Lumo', style: Theme.of(sheetContext).textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(
+              appVersionLabel,
+              style: Theme.of(sheetContext).textTheme.bodyMedium,
             ),
-          ),
+            const SizedBox(height: 16),
+            ListTile(
+              minTileHeight: 56,
+              leading: const Icon(Icons.system_update_outlined),
+              title: const Text('检查更新'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _checkForUpdate();
+              },
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('© 2026 Lumo contributors'),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   Future<void> _showPreferences() async {
     final selection = await showModalBottomSheet<bool>(
@@ -439,13 +481,15 @@ class _ProfilePageState extends State<ProfilePage> {
               _SettingsGroup(
                 children: [
                   _SettingsRow(
-                      title: '陪伴性格',
-                      value: _preferences.personality,
-                      onTap: () => Navigator.pop(context, true)),
+                    title: '陪伴性格',
+                    value: _preferences.personality,
+                    onTap: () => Navigator.pop(context, true),
+                  ),
                   _SettingsRow(
-                      title: '对话主题',
-                      value: _preferences.topic,
-                      onTap: () => Navigator.pop(context, false)),
+                    title: '对话主题',
+                    value: _preferences.topic,
+                    onTap: () => Navigator.pop(context, false),
+                  ),
                 ],
               ),
             ],
@@ -497,8 +541,12 @@ class _ProfilePageState extends State<ProfilePage> {
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('profile-scroll'),
-        padding:
-            EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 32),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          16,
+          horizontalPadding,
+          32,
+        ),
         children: [
           Align(
             alignment: Alignment.centerRight,
@@ -518,9 +566,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Text(
                   _account?.username.substring(0, 1).toUpperCase() ?? '游',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700),
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(width: 20),
@@ -550,13 +599,15 @@ class _ProfilePageState extends State<ProfilePage> {
           Row(
             children: [
               Expanded(
-                  child: _ProfileButton(
-                      label: _account == null ? '登录 / 注册' : '账号信息',
-                      onTap: _showAccount)),
+                child: _ProfileButton(
+                  label: _account == null ? '登录 / 注册' : '账号信息',
+                  onTap: _showAccount,
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
-                  child:
-                      _ProfileButton(label: '陪伴偏好', onTap: _showPreferences)),
+                child: _ProfileButton(label: '陪伴偏好', onTap: _showPreferences),
+              ),
             ],
           ),
           const SizedBox(height: 30),
@@ -570,35 +621,45 @@ class _ProfilePageState extends State<ProfilePage> {
                   label: widget.themeMode == ThemeMode.dark ? '浅色模式' : '深色模式',
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    widget.onThemeModeChanged(widget.themeMode == ThemeMode.dark
-                        ? ThemeMode.light
-                        : ThemeMode.dark);
+                    widget.onThemeModeChanged(
+                      widget.themeMode == ThemeMode.dark
+                          ? ThemeMode.light
+                          : ThemeMode.dark,
+                    );
                   },
                 ),
               ),
               Expanded(
-                  child: _ProfileShortcut(
-                      icon: Icons.shield_outlined,
-                      label: '隐私说明',
-                      onTap: _showPrivacy)),
+                child: _ProfileShortcut(
+                  icon: Icons.shield_outlined,
+                  label: '隐私说明',
+                  onTap: _showPrivacy,
+                ),
+              ),
               Expanded(
-                  child: _ProfileShortcut(
-                      icon: Icons.system_update_outlined,
-                      label: '检查更新',
-                      onTap: _checkForUpdate)),
+                child: _ProfileShortcut(
+                  icon: Icons.system_update_outlined,
+                  label: '检查更新',
+                  onTap: _checkForUpdate,
+                ),
+              ),
               Expanded(
-                  child: _ProfileShortcut(
-                      icon: Icons.info_outline_rounded,
-                      label: '关于 Lumo',
-                      onTap: _showAbout)),
+                child: _ProfileShortcut(
+                  icon: Icons.info_outline_rounded,
+                  label: '关于 Lumo',
+                  onTap: _showAbout,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 72),
           const Center(child: LumoMark(size: 48)),
           const SizedBox(height: 14),
-          Text('愿每一次陪伴都由你掌控',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            '愿每一次陪伴都由你掌控',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
       ),
     );
@@ -613,23 +674,27 @@ class _ProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: SizedBox(
-              height: 56,
-              child: Center(
-                  child: Text(label,
-                      style: Theme.of(context).textTheme.titleMedium))),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: SizedBox(
+        height: 56,
+        child: Center(
+          child: Text(label, style: Theme.of(context).textTheme.titleMedium),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _ProfileShortcut extends StatelessWidget {
-  const _ProfileShortcut(
-      {required this.icon, required this.label, required this.onTap});
+  const _ProfileShortcut({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -637,31 +702,31 @@ class _ProfileShortcut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkResponse(
-        radius: 32,
-        onTap: onTap,
-        child: Semantics(
-          button: true,
-          label: label,
-          child: SizedBox(
-            height: 78,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 25),
-                const SizedBox(height: 8),
-                ExcludeSemantics(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
+    radius: 32,
+    onTap: onTap,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: SizedBox(
+        height: 78,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 25),
+            const SizedBox(height: 8),
+            ExcludeSemantics(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _SettingsDetailPage extends StatefulWidget {
@@ -710,20 +775,26 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
       body: SafeArea(
         top: false,
         child: ListView(
-          padding:
-              EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 32),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            12,
+            horizontalPadding,
+            32,
+          ),
           children: [
             const _SettingsLabel('陪伴'),
             _SettingsGroup(
               children: [
                 _SettingsRow(
-                    title: '陪伴性格',
-                    value: widget.personality(),
-                    onTap: () => _run(widget.onPersonality)),
+                  title: '陪伴性格',
+                  value: widget.personality(),
+                  onTap: () => _run(widget.onPersonality),
+                ),
                 _SettingsRow(
-                    title: '对话主题',
-                    value: widget.topic(),
-                    onTap: () => _run(widget.onTopic)),
+                  title: '对话主题',
+                  value: widget.topic(),
+                  onTap: () => _run(widget.onTopic),
+                ),
                 const _SettingsRow(title: '陪伴语言', value: '中文'),
               ],
             ),
@@ -732,11 +803,14 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
             _SettingsGroup(
               children: [
                 _SettingsRow(
-                    title: '账号设置',
-                    value: widget.account()?.username ?? '游客',
-                    onTap: () => _run(widget.onAccount)),
+                  title: '账号设置',
+                  value: widget.account()?.username ?? '游客',
+                  onTap: () => _run(widget.onAccount),
+                ),
                 _SettingsRow(
-                    title: '隐私说明', onTap: () => _run(widget.onPrivacy)),
+                  title: '隐私说明',
+                  onTap: () => _run(widget.onPrivacy),
+                ),
               ],
             ),
             const SizedBox(height: 22),
@@ -750,32 +824,45 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
                     onChanged: (enabled) {
                       HapticFeedback.selectionClick();
                       widget.onThemeChanged(
-                          enabled ? ThemeMode.dark : ThemeMode.light);
+                        enabled ? ThemeMode.dark : ThemeMode.light,
+                      );
                     },
                   ),
                 ),
                 _SettingsRow(
-                    title: '开源许可', onTap: () => _run(widget.onLicenses)),
+                  title: '开源许可',
+                  onTap: () => _run(widget.onLicenses),
+                ),
                 _SettingsRow(
-                    title: '关于 Lumo',
-                    value: appVersionLabel,
-                    onTap: () => _run(widget.onAbout)),
+                  title: '关于 Lumo',
+                  value: appVersionLabel,
+                  onTap: () => _run(widget.onAbout),
+                ),
               ],
             ),
             if (widget.account() != null) ...[
               const SizedBox(height: 22),
-              _SettingsGroup(children: [
-                _SettingsRow(title: '退出登录', onTap: () => _run(widget.onAccount))
-              ]),
+              _SettingsGroup(
+                children: [
+                  _SettingsRow(
+                    title: '退出登录',
+                    onTap: () => _run(widget.onAccount),
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: 42),
-            Text('当前版本：$appVersionLabel',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              '当前版本：$appVersionLabel',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 8),
-            Text('© 2026 Lumo contributors',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              '© 2026 Lumo contributors',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
       ),
@@ -790,9 +877,9 @@ class _SettingsLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-      );
+    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+    child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+  );
 }
 
 class _SettingsGroup extends StatelessWidget {
@@ -802,28 +889,33 @@ class _SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            for (var index = 0; index < children.length; index++) ...[
-              children[index],
-              if (index != children.length - 1)
-                Divider(
-                    height: 1,
-                    indent: 20,
-                    endIndent: 20,
-                    color: Theme.of(context).dividerColor),
-            ],
-          ],
-        ),
-      );
+    color: Theme.of(context).colorScheme.surface,
+    borderRadius: BorderRadius.circular(24),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        for (var index = 0; index < children.length; index++) ...[
+          children[index],
+          if (index != children.length - 1)
+            Divider(
+              height: 1,
+              indent: 20,
+              endIndent: 20,
+              color: Theme.of(context).dividerColor,
+            ),
+        ],
+      ],
+    ),
+  );
 }
 
 class _SettingsRow extends StatelessWidget {
-  const _SettingsRow(
-      {required this.title, this.value, this.onTap, this.trailing});
+  const _SettingsRow({
+    required this.title,
+    this.value,
+    this.onTap,
+    this.trailing,
+  });
 
   final String title;
   final String? value;
@@ -832,32 +924,38 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        minTileHeight: 64,
-        title: Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        trailing: trailing ??
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (value != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 128),
-                    child: Text(value!,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                if (onTap != null) const SizedBox(width: 6),
-                if (onTap != null)
-                  Icon(Icons.chevron_right_rounded,
-                      size: 22,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ],
-            ),
-        onTap: onTap,
-      );
+    minTileHeight: 64,
+    title: Text(
+      title,
+      style: Theme.of(
+        context,
+      ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+    ),
+    trailing:
+        trailing ??
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (value != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 128),
+                child: Text(
+                  value!,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            if (onTap != null) const SizedBox(width: 6),
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+          ],
+        ),
+    onTap: onTap,
+  );
 }
 
 class _LicenseLine extends StatelessWidget {
@@ -868,12 +966,12 @@ class _LicenseLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Expanded(child: Text(name)),
-            Text(license, style: Theme.of(context).textTheme.bodySmall)
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      children: [
+        Expanded(child: Text(name)),
+        Text(license, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
 }

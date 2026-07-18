@@ -52,14 +52,16 @@ class Companion {
         _ => CompanionCategory.listener,
       },
       color: Color(
-          int.parse((json['color']! as String).substring(1), radix: 16) |
-              0xFF000000),
+        int.parse((json['color']! as String).substring(1), radix: 16) |
+            0xFF000000,
+      ),
       people: json['people']! as String,
       lastMessage: json['lastMessage']! as String,
       lastTime: '现在',
       openingMessage: json['openingMessage']! as String,
-      avatarAsset:
-          avatarUrl?.isNotEmpty == true ? null : _builtInAvatarAssets[id],
+      avatarAsset: avatarUrl?.isNotEmpty == true
+          ? null
+          : _builtInAvatarAssets[id],
       avatarUrl: avatarUrl?.isNotEmpty == true ? avatarUrl : null,
       isAvailable: json['enabled'] == true,
     );
@@ -181,9 +183,9 @@ const notices = <NoticeItem>[
 ];
 
 String categoryLabel(CompanionCategory category) => switch (category) {
-      CompanionCategory.all => '全部',
-      CompanionCategory.listener => '情感倾听',
-      CompanionCategory.meditation => '冥想引导',
-      CompanionCategory.counselor => '心理咨询',
-      CompanionCategory.life => '生活陪伴',
-    };
+  CompanionCategory.all => '全部',
+  CompanionCategory.listener => '情感倾听',
+  CompanionCategory.meditation => '冥想引导',
+  CompanionCategory.counselor => '心理咨询',
+  CompanionCategory.life => '生活陪伴',
+};

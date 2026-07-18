@@ -54,21 +54,25 @@ class _LumoShellState extends State<LumoShell> {
 
   static const _destinations = [
     _DockDestination(
-        label: '首页',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home_rounded),
+      label: '首页',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
+    ),
     _DockDestination(
-        label: '智能体',
-        icon: Icons.people_outline_rounded,
-        selectedIcon: Icons.people_rounded),
+      label: '智能体',
+      icon: Icons.people_outline_rounded,
+      selectedIcon: Icons.people_rounded,
+    ),
     _DockDestination(
-        label: '探索',
-        icon: Icons.explore_outlined,
-        selectedIcon: Icons.explore_rounded),
+      label: '探索',
+      icon: Icons.explore_outlined,
+      selectedIcon: Icons.explore_rounded,
+    ),
     _DockDestination(
-        label: '个人',
-        icon: Icons.person_outline_rounded,
-        selectedIcon: Icons.person_rounded),
+      label: '个人',
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+    ),
   ];
 
   void _select(int index) {
@@ -97,13 +101,15 @@ class _LumoShellState extends State<LumoShell> {
         children: [
           const HomePage(),
           AgentsPage(
-              companions: _companions,
-              catalogError: _catalogError,
-              onRetry: _loadAgents),
+            companions: _companions,
+            catalogError: _catalogError,
+            onRetry: _loadAgents,
+          ),
           ExplorePage(
-              companions: _companions,
-              catalogError: _catalogError,
-              onRetry: _loadAgents),
+            companions: _companions,
+            catalogError: _catalogError,
+            onRetry: _loadAgents,
+          ),
           ProfilePage(
             themeMode: widget.themeMode,
             onThemeModeChanged: widget.onThemeModeChanged,
@@ -198,11 +204,12 @@ class _FloatingDock extends StatelessWidget {
 }
 
 class _DockItem extends StatelessWidget {
-  const _DockItem(
-      {required this.destination,
-      required this.selected,
-      required this.duration,
-      required this.onTap});
+  const _DockItem({
+    required this.destination,
+    required this.selected,
+    required this.duration,
+    required this.onTap,
+  });
 
   final _DockDestination destination;
   final bool selected;
@@ -226,10 +233,11 @@ class _DockItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _DockIcon(
-                destination: destination,
-                selected: selected,
-                color: color,
-                duration: duration),
+              destination: destination,
+              selected: selected,
+              color: color,
+              duration: duration,
+            ),
             const SizedBox(height: 2),
             AnimatedDefaultTextStyle(
               duration: duration,
@@ -249,11 +257,12 @@ class _DockItem extends StatelessWidget {
 }
 
 class _DockIcon extends StatelessWidget {
-  const _DockIcon(
-      {required this.destination,
-      required this.selected,
-      required this.color,
-      required this.duration});
+  const _DockIcon({
+    required this.destination,
+    required this.selected,
+    required this.color,
+    required this.duration,
+  });
 
   final _DockDestination destination;
   final bool selected;
@@ -262,18 +271,22 @@ class _DockIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
-        duration: duration,
-        curve: Curves.easeOutCubic,
-        tween: ColorTween(end: color),
-        builder: (context, value, child) => Icon(
-            selected ? destination.selectedIcon : destination.icon,
-            color: value),
-      );
+    duration: duration,
+    curve: Curves.easeOutCubic,
+    tween: ColorTween(end: color),
+    builder: (context, value, child) => Icon(
+      selected ? destination.selectedIcon : destination.icon,
+      color: value,
+    ),
+  );
 }
 
 class _DockDestination {
-  const _DockDestination(
-      {required this.label, required this.icon, required this.selectedIcon});
+  const _DockDestination({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
 
   final String label;
   final IconData icon;

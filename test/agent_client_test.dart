@@ -12,30 +12,32 @@ void main() {
       expect(request.uri.path, '/agents');
       request.response
         ..headers.contentType = ContentType.json
-        ..write(jsonEncode({
-          'agents': [
-            {
-              'id': 'new_agent',
-              'name': '新伙伴',
-              'glyph': '新',
-              'tagline': '陪你好好说话',
-              'category': 'listener',
-              'color': '#A45F41',
-              'people': '陪伴者',
-              'lastMessage': '最近消息',
-              'openingMessage': '你好',
-              'avatarUrl': 'https://example.com/avatar.jpg',
-              'enabled': true,
-              'sortOrder': 0,
-            },
-          ],
-        }));
+        ..write(
+          jsonEncode({
+            'agents': [
+              {
+                'id': 'new_agent',
+                'name': '新伙伴',
+                'glyph': '新',
+                'tagline': '陪你好好说话',
+                'category': 'listener',
+                'color': '#A45F41',
+                'people': '陪伴者',
+                'lastMessage': '最近消息',
+                'openingMessage': '你好',
+                'avatarUrl': 'https://example.com/avatar.jpg',
+                'enabled': true,
+                'sortOrder': 0,
+              },
+            ],
+          }),
+        );
       request.response.close();
     });
 
-    final agents =
-        await AgentClient(endpoint: 'http://127.0.0.1:${server.port}/chat')
-            .fetchAgents();
+    final agents = await AgentClient(
+      endpoint: 'http://127.0.0.1:${server.port}/chat',
+    ).fetchAgents();
 
     expect(agents.single.id, 'new_agent');
     expect(agents.single.avatarUrl, 'https://example.com/avatar.jpg');

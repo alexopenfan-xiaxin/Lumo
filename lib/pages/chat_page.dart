@@ -12,11 +12,12 @@ import '../speech_input.dart';
 import '../widgets.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage(
-      {required this.companion,
-      required this.heroTag,
-      this.createNew = false,
-      super.key});
+  const ChatPage({
+    required this.companion,
+    required this.heroTag,
+    this.createNew = false,
+    super.key,
+  });
 
   final Companion companion;
   final String heroTag;
@@ -34,7 +35,10 @@ class _ChatPageState extends State<ChatPage> {
   late final ChatStore _store;
   late List<_ChatMessage> _messages = [
     _ChatMessage(
-        id: 'opening', text: widget.companion.openingMessage, fromUser: false)
+      id: 'opening',
+      text: widget.companion.openingMessage,
+      fromUser: false,
+    ),
   ];
   Conversation? _conversation;
   List<MemoryEntry> _pendingMemories = const [];
@@ -59,12 +63,15 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  Future<void> _loadConversation(
-      {Conversation? conversation, bool createNew = false}) async {
+  Future<void> _loadConversation({
+    Conversation? conversation,
+    bool createNew = false,
+  }) async {
     if (!widget.companion.isAvailable) return;
     setState(() => _isLoadingConversation = true);
     try {
-      final selected = conversation ??
+      final selected =
+          conversation ??
           (createNew
               ? await _store.createConversation(widget.companion.id)
               : await _store.latestConversation(widget.companion.id)) ??
@@ -78,8 +85,10 @@ class _ChatPageState extends State<ChatPage> {
         );
         storedMessages = await _store.messages(selected.id);
       }
-      final pending = await _store.memories(widget.companion.id,
-          status: MemoryStatus.pending.name);
+      final pending = await _store.memories(
+        widget.companion.id,
+        status: MemoryStatus.pending.name,
+      );
       if (!mounted) return;
       setState(() {
         _conversation = selected;
@@ -111,8 +120,9 @@ class _ChatPageState extends State<ChatPage> {
     final text = (suggestedText ?? _inputController.text).trim();
     if (text.isEmpty || _isReplying || _isLoadingConversation) return;
     if (!widget.companion.isAvailable) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('该智能体暂未开放，敬请期待。')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('该智能体暂未开放，敬请期待。')));
       return;
     }
     if (_conversation == null) await _loadConversation();
@@ -164,24 +174,30 @@ class _ChatPageState extends State<ChatPage> {
       );
       if (mounted)
         setState(
-            () => _messages.add(_ChatMessage.fromStored(assistantMessage)));
+          () => _messages.add(_ChatMessage.fromStored(assistantMessage)),
+        );
       unawaited(_proposeMemories(conversation.id));
     } on AiQuotaException catch (error) {
       await _store.deleteMessage(userMessage.id);
       if (mounted) {
-        setState(() =>
-            _messages.removeWhere((message) => message.id == userMessage.id));
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+        setState(
+          () =>
+              _messages.removeWhere((message) => message.id == userMessage.id),
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } on AiChatException catch (error) {
       if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
     } on Exception {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('本地会话保存失败，请稍后再试。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('本地会话保存失败，请稍后再试。')));
       }
     } finally {
       if (mounted) {
@@ -191,23 +207,27 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Future<_PreparedContext> _prepareContext(String conversationId,
-      {bool forceTrim = false}) async {
+  Future<_PreparedContext> _prepareContext(
+    String conversationId, {
+    bool forceTrim = false,
+  }) async {
     final existingConversation = await _store.conversation(conversationId);
     if (existingConversation == null) throw const AiChatException('当前会话已不存在。');
     var conversation = existingConversation;
     var shouldForceTrim = forceTrim;
     while (true) {
       final messages = await _store.messages(conversation.id);
-      final memories = (await _store.memories(widget.companion.id,
-              status: MemoryStatus.approved.name))
-          .take(100)
-          .toList();
+      final memories = (await _store.memories(
+        widget.companion.id,
+        status: MemoryStatus.approved.name,
+      )).take(100).toList();
       final window = limitContext(
-          messages: messages,
-          summary: conversation.summary,
-          memories: memories);
-      final forcedIds = shouldForceTrim &&
+        messages: messages,
+        summary: conversation.summary,
+        memories: memories,
+      );
+      final forcedIds =
+          shouldForceTrim &&
               window.removedMessageIds.isEmpty &&
               messages.length > 1
           ? [messages.first.id]
@@ -217,13 +237,15 @@ class _ChatPageState extends State<ChatPage> {
           : window.removedMessageIds;
       if (messageIds.isEmpty) {
         return _PreparedContext(
-            messages: window.messages,
-            summary: conversation.summary,
-            memories: memories);
+          messages: window.messages,
+          summary: conversation.summary,
+          memories: memories,
+        );
       }
       final ids = messageIds.toSet();
       final batch = _summaryBatch(
-          messages.where((message) => ids.contains(message.id)).toList());
+        messages.where((message) => ids.contains(message.id)).toList(),
+      );
       if (batch.isEmpty) throw const AiChatException('上下文内容过大，无法继续整理。');
       final summary = await _aiChatClient.summarize(
         conversation.summary,
@@ -238,8 +260,11 @@ class _ChatPageState extends State<ChatPage> {
       shouldForceTrim = false;
       conversation = conversation.copyWith(summary: summary);
       if (mounted && _conversation?.id == conversation.id) {
-        setState(() => _messages.removeWhere(
-            (message) => batch.any((stored) => stored.id == message.id)));
+        setState(
+          () => _messages.removeWhere(
+            (message) => batch.any((stored) => stored.id == message.id),
+          ),
+        );
       }
     }
   }
@@ -260,8 +285,10 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final messages = await _store.messages(conversationId);
       if (messages.length < 2) return;
-      final approved = await _store.memories(widget.companion.id,
-          status: MemoryStatus.approved.name);
+      final approved = await _store.memories(
+        widget.companion.id,
+        status: MemoryStatus.approved.name,
+      );
       final candidates = await _aiChatClient.memoryCandidates(
         messages.skip(messages.length - 2).map(_asAiMessage).toList(),
         approved.take(100).map((memory) => memory.content).toList(),
@@ -269,8 +296,10 @@ class _ChatPageState extends State<ChatPage> {
       );
       if (candidates.isEmpty) return;
       await _store.addMemoryCandidates(widget.companion.id, candidates);
-      final pending = await _store.memories(widget.companion.id,
-          status: MemoryStatus.pending.name);
+      final pending = await _store.memories(
+        widget.companion.id,
+        status: MemoryStatus.pending.name,
+      );
       if (mounted) setState(() => _pendingMemories = pending);
     } on Exception {
       // Memory suggestions are optional; a chat reply must not be affected by their failure.
@@ -278,12 +307,14 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   AiChatMessage _asAiMessage(StoredMessage message) => AiChatMessage(
-      role: message.role == MessageRole.user ? 'user' : 'assistant',
-      content: message.content);
+    role: message.role == MessageRole.user ? 'user' : 'assistant',
+    content: message.content,
+  );
 
   Future<void> _showSessions() async {
-    Future<List<Conversation>> sessions =
-        _store.conversations(widget.companion.id);
+    Future<List<Conversation>> sessions = _store.conversations(
+      widget.companion.id,
+    );
     final selected = await showModalBottomSheet<Conversation>(
       context: context,
       builder: (sheetContext) => StatefulBuilder(
@@ -301,8 +332,11 @@ class _ChatPageState extends State<ChatPage> {
                     Row(
                       children: [
                         Expanded(
-                            child: Text('会话',
-                                style: Theme.of(context).textTheme.titleLarge)),
+                          child: Text(
+                            '会话',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
                         FilledButton.icon(
                           onPressed: () async {
                             final conversation = await _store
@@ -318,8 +352,9 @@ class _ChatPageState extends State<ChatPage> {
                     const SizedBox(height: 8),
                     if (snapshot.connectionState != ConnectionState.done)
                       const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Center(child: CircularProgressIndicator()))
+                        padding: EdgeInsets.all(20),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
                     else
                       Flexible(
                         child: ListView.builder(
@@ -329,20 +364,28 @@ class _ChatPageState extends State<ChatPage> {
                             final conversation = items[index];
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: Text(conversation.title,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                              subtitle:
-                                  Text(_timeLabel(conversation.updatedAt)),
+                              title: Text(
+                                conversation.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                _timeLabel(conversation.updatedAt),
+                              ),
                               onTap: () =>
                                   Navigator.pop(sheetContext, conversation),
                               trailing: IconButton(
                                 tooltip: '删除会话',
                                 icon: const Icon(Icons.delete_outline_rounded),
                                 onPressed: () async {
-                                  await _store
-                                      .deleteConversation(conversation.id);
-                                  setSheetState(() => sessions = _store
-                                      .conversations(widget.companion.id));
+                                  await _store.deleteConversation(
+                                    conversation.id,
+                                  );
+                                  setSheetState(
+                                    () => sessions = _store.conversations(
+                                      widget.companion.id,
+                                    ),
+                                  );
                                 },
                               ),
                             );
@@ -361,8 +404,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _showMemories() async {
-    Future<List<MemoryEntry>> memoryFuture =
-        _store.memories(widget.companion.id);
+    Future<List<MemoryEntry>> memoryFuture = _store.memories(
+      widget.companion.id,
+    );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -382,31 +426,43 @@ class _ChatPageState extends State<ChatPage> {
                       Row(
                         children: [
                           Expanded(
-                              child: Text('${widget.companion.name}的记忆',
-                                  style:
-                                      Theme.of(context).textTheme.titleLarge)),
+                            child: Text(
+                              '${widget.companion.name}的记忆',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
                           IconButton(
                             tooltip: '清空全部记忆',
                             onPressed: memories.isEmpty
                                 ? null
                                 : () async {
                                     if (!await _confirm(
-                                        '清空全部记忆？', '已确认和待确认的记忆都会永久删除。')) return;
-                                    await _store
-                                        .clearMemories(widget.companion.id);
-                                    setSheetState(() => memoryFuture =
-                                        _store.memories(widget.companion.id));
+                                      '清空全部记忆？',
+                                      '已确认和待确认的记忆都会永久删除。',
+                                    ))
+                                      return;
+                                    await _store.clearMemories(
+                                      widget.companion.id,
+                                    );
+                                    setSheetState(
+                                      () => memoryFuture = _store.memories(
+                                        widget.companion.id,
+                                      ),
+                                    );
                                     if (mounted)
                                       setState(
-                                          () => _pendingMemories = const []);
+                                        () => _pendingMemories = const [],
+                                      );
                                   },
                             icon: const Icon(Icons.delete_sweep_outlined),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('只有确认后的内容会在后续对话中使用。',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        '只有确认后的内容会在后续对话中使用。',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 12),
                       Expanded(
                         child: ListView.separated(
@@ -426,11 +482,15 @@ class _ChatPageState extends State<ChatPage> {
                                       tooltip: '确认记忆',
                                       onPressed: () async {
                                         await _store.updateMemory(
-                                            memory.copyWith(
-                                                status: MemoryStatus.approved));
-                                        setSheetState(() => memoryFuture =
-                                            _store
-                                                .memories(widget.companion.id));
+                                          memory.copyWith(
+                                            status: MemoryStatus.approved,
+                                          ),
+                                        );
+                                        setSheetState(
+                                          () => memoryFuture = _store.memories(
+                                            widget.companion.id,
+                                          ),
+                                        );
                                         _refreshPendingMemories();
                                       },
                                       icon: const Icon(Icons.check_rounded),
@@ -438,13 +498,18 @@ class _ChatPageState extends State<ChatPage> {
                                   IconButton(
                                     tooltip: '编辑记忆',
                                     onPressed: () async {
-                                      final edited =
-                                          await _editMemory(memory.content);
+                                      final edited = await _editMemory(
+                                        memory.content,
+                                      );
                                       if (edited == null) return;
                                       await _store.updateMemory(
-                                          memory.copyWith(content: edited));
-                                      setSheetState(() => memoryFuture =
-                                          _store.memories(widget.companion.id));
+                                        memory.copyWith(content: edited),
+                                      );
+                                      setSheetState(
+                                        () => memoryFuture = _store.memories(
+                                          widget.companion.id,
+                                        ),
+                                      );
                                     },
                                     icon: const Icon(Icons.edit_outlined),
                                   ),
@@ -452,8 +517,11 @@ class _ChatPageState extends State<ChatPage> {
                                     tooltip: '删除记忆',
                                     onPressed: () async {
                                       await _store.deleteMemory(memory.id);
-                                      setSheetState(() => memoryFuture =
-                                          _store.memories(widget.companion.id));
+                                      setSheetState(
+                                        () => memoryFuture = _store.memories(
+                                          widget.companion.id,
+                                        ),
+                                      );
                                       _refreshPendingMemories();
                                     },
                                     icon: const Icon(Icons.close_rounded),
@@ -476,8 +544,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _refreshPendingMemories() async {
-    final pending = await _store.memories(widget.companion.id,
-        status: MemoryStatus.pending.name);
+    final pending = await _store.memories(
+      widget.companion.id,
+      status: MemoryStatus.pending.name,
+    );
     if (mounted) setState(() => _pendingMemories = pending);
   }
 
@@ -488,14 +558,16 @@ class _ChatPageState extends State<ChatPage> {
       final text = await _speechInput.start();
       if (text.isNotEmpty && mounted) {
         _inputController.text = text;
-        _inputController.selection =
-            TextSelection.collapsed(offset: text.length);
+        _inputController.selection = TextSelection.collapsed(
+          offset: text.length,
+        );
         setState(() {});
       }
     } on PlatformException catch (error) {
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message ?? '无法启动语音输入。')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message ?? '无法启动语音输入。')));
     } finally {
       if (mounted) setState(() => _isListening = false);
     }
@@ -516,11 +588,13 @@ class _ChatPageState extends State<ChatPage> {
           content: Text(content),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('清空')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('清空'),
+            ),
           ],
         ),
       ) ??
@@ -532,14 +606,20 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('编辑记忆'),
-        content:
-            TextField(controller: controller, maxLength: 240, autofocus: true),
+        content: TextField(
+          controller: controller,
+          maxLength: 240,
+          autofocus: true,
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -548,10 +628,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   String _memoryLabel(MemoryStatus status) => switch (status) {
-        MemoryStatus.pending => '等待你的确认',
-        MemoryStatus.approved => '已用于后续对话',
-        MemoryStatus.rejected => '已拒绝',
-      };
+    MemoryStatus.pending => '等待你的确认',
+    MemoryStatus.approved => '已用于后续对话',
+    MemoryStatus.rejected => '已拒绝',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -563,7 +643,10 @@ class _ChatPageState extends State<ChatPage> {
         title: Row(
           children: [
             CompanionAvatar(
-                companion: widget.companion, size: 42, heroTag: widget.heroTag),
+              companion: widget.companion,
+              size: 42,
+              heroTag: widget.heroTag,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -580,10 +663,10 @@ class _ChatPageState extends State<ChatPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: widget.companion.isAvailable
-                              ? Theme.of(context).colorScheme.secondary
-                              : null,
-                        ),
+                      color: widget.companion.isAvailable
+                          ? Theme.of(context).colorScheme.secondary
+                          : null,
+                    ),
                   ),
                 ],
               ),
@@ -593,14 +676,16 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           if (widget.companion.isAvailable)
             IconButton(
-                tooltip: '会话管理',
-                onPressed: _showSessions,
-                icon: const Icon(Icons.forum_outlined)),
+              tooltip: '会话管理',
+              onPressed: _showSessions,
+              icon: const Icon(Icons.forum_outlined),
+            ),
           if (widget.companion.isAvailable)
             IconButton(
-                tooltip: '${widget.companion.name}的记忆',
-                onPressed: _showMemories,
-                icon: const Icon(Icons.psychology_outlined)),
+              tooltip: '${widget.companion.name}的记忆',
+              onPressed: _showMemories,
+              icon: const Icon(Icons.psychology_outlined),
+            ),
         ],
       ),
       body: SafeArea(
@@ -619,16 +704,21 @@ class _ChatPageState extends State<ChatPage> {
                   : ListView(
                       controller: _scrollController,
                       padding: EdgeInsets.fromLTRB(
-                          horizontalPadding, 20, horizontalPadding, 20),
+                        horizontalPadding,
+                        20,
+                        horizontalPadding,
+                        20,
+                      ),
                       children: [
                         for (final message in _messages)
                           _MessageBubble(message: message)
                               .animate(key: ValueKey(message.id))
                               .fadeIn(duration: messageDuration)
                               .slideY(
-                                  begin: 0.035,
-                                  end: 0,
-                                  duration: messageDuration),
+                                begin: 0.035,
+                                end: 0,
+                                duration: messageDuration,
+                              ),
                         if (_isReplying)
                           _TypingBubble(color: widget.companion.color),
                       ],
@@ -644,10 +734,13 @@ class _ChatPageState extends State<ChatPage> {
                     child: ListTile(
                       leading: const Icon(Icons.psychology_outlined),
                       title: Text(
-                          '${widget.companion.name}想记住 ${_pendingMemories.length} 件事'),
+                        '${widget.companion.name}想记住 ${_pendingMemories.length} 件事',
+                      ),
                       subtitle: const Text('确认后才会用于后续对话'),
-                      trailing:
-                          const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                      ),
                       onTap: _showMemories,
                     ),
                   ),
@@ -657,11 +750,16 @@ class _ChatPageState extends State<ChatPage> {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 border: Border(
-                    top: BorderSide(color: Theme.of(context).dividerColor)),
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
               ),
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                    horizontalPadding - 8, 10, horizontalPadding - 8, 12),
+                  horizontalPadding - 8,
+                  10,
+                  horizontalPadding - 8,
+                  12,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -673,9 +771,11 @@ class _ChatPageState extends State<ChatPage> {
                               if (_isListening) _endSpeech();
                               setState(() => _isVoiceMode = !_isVoiceMode);
                             },
-                      icon: Icon(_isVoiceMode
-                          ? Icons.keyboard_outlined
-                          : Icons.mic_none_rounded),
+                      icon: Icon(
+                        _isVoiceMode
+                            ? Icons.keyboard_outlined
+                            : Icons.mic_none_rounded,
+                      ),
                     ),
                     Expanded(
                       child: _isVoiceMode
@@ -693,24 +793,23 @@ class _ChatPageState extends State<ChatPage> {
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: _isListening
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                            .withValues(alpha: 0.16)
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .surfaceContainerHighest,
+                                        ? Theme.of(context).colorScheme.primary
+                                              .withValues(alpha: 0.16)
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: _isListening
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primary
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
                                           : Theme.of(context).dividerColor,
                                     ),
                                   ),
                                   child: Text(
-                                      _isListening ? '松开 结束语音输入' : '按住 说话'),
+                                    _isListening ? '松开 结束语音输入' : '按住 说话',
+                                  ),
                                 ),
                               ),
                             )
@@ -726,7 +825,9 @@ class _ChatPageState extends State<ChatPage> {
                                 onChanged: (_) => setState(() {}),
                                 onSubmitted: _send,
                                 decoration: const InputDecoration(
-                                    hintText: '说说此刻的感受…', counterText: ''),
+                                  hintText: '说说此刻的感受…',
+                                  counterText: '',
+                                ),
                               ),
                             ),
                     ),
@@ -736,14 +837,15 @@ class _ChatPageState extends State<ChatPage> {
                       child: SizedBox(
                         height: 48,
                         child: FilledButton(
-                          onPressed: _isReplying ||
+                          onPressed:
+                              _isReplying ||
                                   _isLoadingConversation ||
                                   _inputController.text.trim().isEmpty
                               ? null
                               : _send,
                           style: FilledButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
                           child: const Text('发送'),
                         ),
                       ),
@@ -760,8 +862,11 @@ class _ChatPageState extends State<ChatPage> {
 }
 
 class _PreparedContext {
-  const _PreparedContext(
-      {required this.messages, required this.summary, required this.memories});
+  const _PreparedContext({
+    required this.messages,
+    required this.summary,
+    required this.memories,
+  });
 
   final List<StoredMessage> messages;
   final String summary;
@@ -769,17 +874,21 @@ class _PreparedContext {
 }
 
 class _ChatMessage {
-  const _ChatMessage(
-      {required this.id, required this.text, required this.fromUser});
+  const _ChatMessage({
+    required this.id,
+    required this.text,
+    required this.fromUser,
+  });
 
   final String id;
   final String text;
   final bool fromUser;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
-      id: message.id,
-      text: message.content,
-      fromUser: message.role == MessageRole.user);
+    id: message.id,
+    text: message.content,
+    fromUser: message.role == MessageRole.user,
+  );
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -789,39 +898,39 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Align(
-        alignment:
-            message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(
-              maxWidth: (MediaQuery.sizeOf(context).width * 0.78)
-                  .clamp(240.0, 420.0)
-                  .toDouble()),
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: message.fromUser
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(message.fromUser ? 18 : 5),
-              bottomRight: Radius.circular(message.fromUser ? 5 : 18),
-            ),
-            border: message.fromUser
-                ? null
-                : Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Text(
-            message.text,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: message.fromUser
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : null,
-                ),
-          ),
+    alignment: message.fromUser ? Alignment.centerRight : Alignment.centerLeft,
+    child: Container(
+      constraints: BoxConstraints(
+        maxWidth: (MediaQuery.sizeOf(context).width * 0.78)
+            .clamp(240.0, 420.0)
+            .toDouble(),
+      ),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: message.fromUser
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(message.fromUser ? 18 : 5),
+          bottomRight: Radius.circular(message.fromUser ? 5 : 18),
         ),
-      );
+        border: message.fromUser
+            ? null
+            : Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Text(
+        message.text,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: message.fromUser
+              ? Theme.of(context).colorScheme.onPrimary
+              : null,
+        ),
+      ),
+    ),
+  );
 }
 
 class _TypingBubble extends StatelessWidget {
@@ -831,24 +940,26 @@ class _TypingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Align(
-        alignment: Alignment.centerLeft,
-        child: Semantics(
-          label: '陪伴者正在回复',
-          liveRegion: true,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: SizedBox(
-              width: 36,
-              child: LinearProgressIndicator(
-                  color: color, backgroundColor: color.withValues(alpha: 0.12)),
-            ),
+    alignment: Alignment.centerLeft,
+    child: Semantics(
+      label: '陪伴者正在回复',
+      liveRegion: true,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: SizedBox(
+          width: 36,
+          child: LinearProgressIndicator(
+            color: color,
+            backgroundColor: color.withValues(alpha: 0.12),
           ),
         ),
-      );
+      ),
+    ),
+  );
 }

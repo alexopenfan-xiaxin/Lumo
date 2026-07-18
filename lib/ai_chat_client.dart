@@ -5,9 +5,8 @@ import 'auth_client.dart';
 
 class AiChatClient {
   AiChatClient({String? endpoint, AuthClient? authClient})
-      : _endpoint =
-            endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT'),
-        _authClient = authClient ?? AuthClient(endpoint: endpoint);
+    : _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT'),
+      _authClient = authClient ?? AuthClient(endpoint: endpoint);
 
   final String _endpoint;
   final AuthClient _authClient;
@@ -76,8 +75,10 @@ class AiChatClient {
         .toList();
   }
 
-  Future<Map<String, dynamic>> _request(
-      {required String agentId, required Map<String, dynamic> body}) async {
+  Future<Map<String, dynamic>> _request({
+    required String agentId,
+    required Map<String, dynamic> body,
+  }) async {
     if (_endpoint.isEmpty) throw const AiChatException('AI 服务还没有部署完成。');
     final client = HttpClient();
     try {
@@ -85,13 +86,17 @@ class AiChatClient {
       final request = await client.postUrl(Uri.parse(_endpoint));
       request.headers.contentType = ContentType.json;
       if (identity.token != null)
-        request.headers
-            .set(HttpHeaders.authorizationHeader, 'Bearer ${identity.token}');
-      request.write(jsonEncode(
-          {'agentId': agentId, 'guestId': identity.guestId, ...body}));
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          'Bearer ${identity.token}',
+        );
+      request.write(
+        jsonEncode({'agentId': agentId, 'guestId': identity.guestId, ...body}),
+      );
       final response = await request.close();
-      final decoded = jsonDecode(await utf8.decoder.bind(response).join())
-          as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await utf8.decoder.bind(response).join())
+              as Map<String, dynamic>;
       if (response.statusCode == HttpStatus.requestEntityTooLarge &&
           decoded['contextLimit'] == true) {
         throw const AiContextLimitException();

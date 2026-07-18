@@ -8,9 +8,8 @@ import 'chat_store.dart';
 
 class AuthClient {
   AuthClient({ChatStore? store, String? endpoint})
-      : _store = store ?? ChatStore(),
-        _endpoint =
-            endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT');
+    : _store = store ?? ChatStore(),
+      _endpoint = endpoint ?? const String.fromEnvironment('LUMO_AI_ENDPOINT');
 
   static const _sessionKey = 'auth_session';
   static const _guestKey = 'guest_id';
@@ -32,8 +31,10 @@ class AuthClient {
   Future<RequestIdentity> identity() async {
     var guestId = await _store.setting(_guestKey);
     try {
-      guestId = await const MethodChannel('app.lumo.companion/device')
-              .invokeMethod<String>('getId') ??
+      guestId =
+          await const MethodChannel(
+            'app.lumo.companion/device',
+          ).invokeMethod<String>('getId') ??
           guestId;
     } on MissingPluginException {
       // Tests and non-Android hosts use the persisted random identifier below.
@@ -41,30 +42,35 @@ class AuthClient {
       // A platform identity failure must not prevent the guest experience.
     }
     guestId ??= List.generate(
-            16,
-            (_) =>
-                Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'))
-        .join();
+      16,
+      (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
     await _store.saveSetting(_guestKey, guestId);
     return RequestIdentity(guestId: guestId, token: (await session())?.token);
   }
 
   Future<AccountSession> login(String username, String password) =>
-      _authenticate(
-          '/auth/login', {'username': username, 'password': password});
-
-  Future<AccountSession> register(
-          String username, String password, String inviteCode) =>
-      _authenticate('/auth/register', {
+      _authenticate('/auth/login', {
         'username': username,
         'password': password,
-        'inviteCode': inviteCode
       });
+
+  Future<AccountSession> register(
+    String username,
+    String password,
+    String inviteCode,
+  ) => _authenticate('/auth/register', {
+    'username': username,
+    'password': password,
+    'inviteCode': inviteCode,
+  });
 
   Future<void> logout() => _store.saveSetting(_sessionKey, null);
 
   Future<AccountSession> _authenticate(
-      String path, Map<String, String> body) async {
+    String path,
+    Map<String, String> body,
+  ) async {
     final response = await _post(path, body);
     final account = AccountSession.fromJson(response);
     await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
@@ -72,18 +78,22 @@ class AuthClient {
   }
 
   Future<Map<String, dynamic>> _post(
-      String path, Map<String, String> body) async {
+    String path,
+    Map<String, String> body,
+  ) async {
     if (_endpoint.isEmpty) throw const AuthException('账号服务还没有部署完成。');
     final endpoint = Uri.parse(_endpoint);
     final client = HttpClient();
     try {
-      final request =
-          await client.postUrl(endpoint.replace(path: path, query: null));
+      final request = await client.postUrl(
+        endpoint.replace(path: path, query: null),
+      );
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
       final response = await request.close();
-      final decoded = jsonDecode(await utf8.decoder.bind(response).join())
-          as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await utf8.decoder.bind(response).join())
+              as Map<String, dynamic>;
       if (response.statusCode != HttpStatus.ok)
         throw AuthException(decoded['error'] as String? ?? '账号操作失败，请稍后再试。');
       return decoded;
@@ -98,11 +108,12 @@ class AuthClient {
 }
 
 class AccountSession {
-  const AccountSession(
-      {required this.username,
-      required this.token,
-      required this.isMember,
-      required this.role});
+  const AccountSession({
+    required this.username,
+    required this.token,
+    required this.isMember,
+    required this.role,
+  });
 
   final String username;
   final String token;
@@ -110,18 +121,18 @@ class AccountSession {
   final String role;
 
   factory AccountSession.fromJson(Map<String, dynamic> json) => AccountSession(
-        username: json['username']! as String,
-        token: json['token']! as String,
-        isMember: json['isMember'] == true,
-        role: json['role']! as String,
-      );
+    username: json['username']! as String,
+    token: json['token']! as String,
+    isMember: json['isMember'] == true,
+    role: json['role']! as String,
+  );
 
   Map<String, dynamic> toJson() => {
-        'username': username,
-        'token': token,
-        'isMember': isMember,
-        'role': role
-      };
+    'username': username,
+    'token': token,
+    'isMember': isMember,
+    'role': role,
+  };
 }
 
 class RequestIdentity {

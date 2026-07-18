@@ -6,8 +6,11 @@ import 'package:flutter/services.dart';
 import 'app_info.dart';
 
 class ReleaseUpdate {
-  const ReleaseUpdate(
-      {required this.version, required this.build, required this.url});
+  const ReleaseUpdate({
+    required this.version,
+    required this.build,
+    required this.url,
+  });
 
   final String version;
   final int build;
@@ -15,11 +18,12 @@ class ReleaseUpdate {
 }
 
 class UpdateDownloadStatus {
-  const UpdateDownloadStatus(
-      {required this.state,
-      required this.received,
-      required this.total,
-      this.reason});
+  const UpdateDownloadStatus({
+    required this.state,
+    required this.received,
+    required this.total,
+    this.reason,
+  });
 
   final String state;
   final int received;
@@ -49,8 +53,10 @@ class UpdateChecker {
     final client = HttpClient();
     try {
       final request = await client.getUrl(Uri.parse(_latestRelease));
-      request.headers
-          .set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/vnd.github+json',
+      );
       request.headers.set(HttpHeaders.userAgentHeader, 'Lumo/$appVersion');
       final response = await request.close();
       if (response.statusCode != HttpStatus.ok)
@@ -93,13 +99,16 @@ class UpdateChecker {
       _channel.invokeMethod<void>('openInstallSettings');
 
   Future<int> startDownload(Uri url) async =>
-      await _channel
-          .invokeMethod<int>('downloadApk', {'url': url.toString()}) ??
+      await _channel.invokeMethod<int>('downloadApk', {
+        'url': url.toString(),
+      }) ??
       (throw PlatformException(code: 'download_failed'));
 
   Future<UpdateDownloadStatus> downloadStatus(int id) async {
-    final status = await _channel
-        .invokeMapMethod<Object?, Object?>('downloadStatus', {'id': id});
+    final status = await _channel.invokeMapMethod<Object?, Object?>(
+      'downloadStatus',
+      {'id': id},
+    );
     if (status == null)
       throw PlatformException(code: 'download_missing', message: '无法读取更新下载状态。');
     return UpdateDownloadStatus.fromMap(status);
@@ -119,8 +128,12 @@ int compareVersions(String left, String right) {
   return 0;
 }
 
-bool isNewerRelease(String releaseVersion, int releaseBuild,
-    String installedVersion, int installedBuild) {
+bool isNewerRelease(
+  String releaseVersion,
+  int releaseBuild,
+  String installedVersion,
+  int installedBuild,
+) {
   final versionComparison = compareVersions(releaseVersion, installedVersion);
   return versionComparison > 0 ||
       (versionComparison == 0 && releaseBuild > installedBuild);

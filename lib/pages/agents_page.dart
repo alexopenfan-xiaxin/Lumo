@@ -8,11 +8,12 @@ import '../widgets.dart';
 import 'chat_page.dart';
 
 class AgentsPage extends StatefulWidget {
-  const AgentsPage(
-      {required this.companions,
-      required this.catalogError,
-      required this.onRetry,
-      super.key});
+  const AgentsPage({
+    required this.companions,
+    required this.catalogError,
+    required this.onRetry,
+    super.key,
+  });
 
   final List<Companion> companions;
   final String? catalogError;
@@ -56,7 +57,8 @@ class _AgentsPageState extends State<AgentsPage> {
     );
     if (mounted)
       setState(
-          () => _previews = Map<String, _AgentPreview>.fromEntries(entries));
+        () => _previews = Map<String, _AgentPreview>.fromEntries(entries),
+      );
   }
 
   Future<void> _openChat(Companion companion, {bool createNew = false}) async {
@@ -78,27 +80,37 @@ class _AgentsPageState extends State<AgentsPage> {
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('agents-scroll'),
-        padding:
-            EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 28),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          20,
+          horizontalPadding,
+          28,
+        ),
         children: [
           const LumoPageTitle(title: '智能体', subtitle: '选择一位陪伴者延续对话'),
           if (widget.catalogError != null) ...[
             const SizedBox(height: 16),
             AgentCatalogNotice(
-                message: widget.catalogError!, onRetry: widget.onRetry),
+              message: widget.catalogError!,
+              onRetry: widget.onRetry,
+            ),
           ],
           const SizedBox(height: 28),
           if (widget.companions.isNotEmpty) ...[
             LumoSectionHeader(
-                title: '我的陪伴', caption: '${widget.companions.length} 位陪伴者'),
+              title: '我的陪伴',
+              caption: '${widget.companions.length} 位陪伴者',
+            ),
             const SizedBox(height: 12),
             Card(
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for (var index = 0;
-                      index < widget.companions.length;
-                      index++) ...[
+                  for (
+                    var index = 0;
+                    index < widget.companions.length;
+                    index++
+                  ) ...[
                     _AgentRow(
                       companion: widget.companions[index],
                       preview: _previews[widget.companions[index].id],
@@ -121,11 +133,12 @@ class _AgentsPageState extends State<AgentsPage> {
 }
 
 class _AgentRow extends StatelessWidget {
-  const _AgentRow(
-      {required this.companion,
-      required this.preview,
-      required this.onTap,
-      required this.onNewChat});
+  const _AgentRow({
+    required this.companion,
+    required this.preview,
+    required this.onTap,
+    required this.onNewChat,
+  });
 
   final Companion companion;
   final _AgentPreview? preview;
@@ -143,9 +156,10 @@ class _AgentRow extends StatelessWidget {
         child: Row(
           children: [
             CompanionAvatar(
-                companion: companion,
-                size: 64,
-                heroTag: 'agents-${companion.id}'),
+              companion: companion,
+              size: 64,
+              heroTag: 'agents-${companion.id}',
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -154,27 +168,34 @@ class _AgentRow extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                          child: Text(companion.name,
-                              style: Theme.of(context).textTheme.titleLarge)),
+                        child: Text(
+                          companion.name,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
                       Text(
                         available ? '在线' : '未开放',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: available
-                                  ? Theme.of(context).colorScheme.secondary
-                                  : null,
-                            ),
+                          color: available
+                              ? Theme.of(context).colorScheme.secondary
+                              : null,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   if (preview?.updatedAt != null) ...[
                     const SizedBox(height: 4),
-                    Text(_timeLabel(preview!.updatedAt!),
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      _timeLabel(preview!.updatedAt!),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ],
               ),
@@ -207,19 +228,21 @@ class _EmptyAgents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 72),
-        child: Column(
-          children: [
-            Icon(Icons.person_search_outlined,
-                size: 56,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(height: 18),
-            Text('暂无陪伴者', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text('新的陪伴者正在准备中', style: Theme.of(context).textTheme.bodyMedium),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 72),
+    child: Column(
+      children: [
+        Icon(
+          Icons.person_search_outlined,
+          size: 56,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
-      );
+        const SizedBox(height: 18),
+        Text('暂无陪伴者', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text('新的陪伴者正在准备中', style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    ),
+  );
 }
 
 class _AgentPreview {

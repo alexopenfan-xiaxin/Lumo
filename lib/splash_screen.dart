@@ -19,11 +19,17 @@ class LumoSplash extends StatefulWidget {
 
 class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
   late final AnimationController _intro = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2800));
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  );
   late final AnimationController _waiting = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1800));
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
   late final AnimationController _exit = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 650));
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  );
   Timer? _waitingTimer;
   bool _started = false;
   bool _introDone = false;
@@ -98,141 +104,150 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: LumoColors.canvas,
-        ),
-        child: Semantics(
-          container: true,
-          excludeSemantics: true,
-          label: _showWaiting ? 'Lumo 正在准备陪伴，请稍候' : 'Lumo，点亮你的每一刻',
-          child: Material(
-            color: LumoColors.canvas,
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_intro, _waiting, _exit]),
-              builder: (context, child) {
-                final formation = _segment(_intro.value, 0.18, 0.54);
-                final seed = _segment(_intro.value, 0, 0.18);
-                final bodyScale = formation == 0
-                    ? ui.lerpDouble(
-                        0.025, 0.08, Curves.easeOut.transform(seed))!
-                    : ui.lerpDouble(
-                        0.08, 1, Curves.easeOutBack.transform(formation))!;
-                final textProgress =
-                    Curves.easeOut.transform(_segment(_intro.value, 0.54, 0.9));
-                final cushion = Curves.easeOut
-                    .transform(_segment(_intro.value, 0.54, 0.78));
-                final openingEyes =
-                    Curves.easeOut.transform(_segment(_intro.value, 0.3, 0.54));
-                final exitEye = _exit.value == 0
-                    ? 1.0
-                    : 1 - math.sin(_segment(_exit.value, 0, 0.62) * math.pi);
-                final exitFade = 1 - _segment(_exit.value, 0.62, 1);
-                final introBreath = _intro.value < 0.54
-                    ? 0.0
-                    : math.sin(_segment(_intro.value, 0.54, 1) * math.pi * 2);
-                final waitWave =
-                    _showWaiting ? math.sin(_waiting.value * math.pi * 2) : 0.0;
-                final scale =
-                    bodyScale * (1 + introBreath * 0.018 + _exit.value * 0.035);
-                return Opacity(
-                  opacity: exitFade,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment(0, 0.62),
-                        radius: 1.05,
-                        colors: [
-                          Color(0x52E7B998),
-                          Color(0xFFF3E6D9),
-                          LumoColors.canvas
-                        ],
-                        stops: [0, 0.5, 1],
-                      ),
-                    ),
-                    child: SafeArea(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Positioned(
-                            top: 54 - (1 - textProgress) * 12,
-                            left: 24,
-                            right: 24,
-                            child: Opacity(
-                              opacity: textProgress,
-                              child: const Text(
-                                'Lumo',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'LumoDisplay',
-                                  fontSize: 48,
-                                  color: LumoColors.ink,
-                                  shadows: [
-                                    Shadow(
-                                        color: Color(0x55E7B998),
-                                        blurRadius: 14)
-                                  ],
+    value: SystemUiOverlayStyle.dark.copyWith(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: LumoColors.canvas,
+    ),
+    child: Semantics(
+      container: true,
+      excludeSemantics: true,
+      label: _showWaiting ? 'Lumo 正在准备陪伴，请稍候' : 'Lumo，点亮你的每一刻',
+      child: Material(
+        color: LumoColors.canvas,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_intro, _waiting, _exit]),
+          builder: (context, child) {
+            final formation = _segment(_intro.value, 0.18, 0.54);
+            final seed = _segment(_intro.value, 0, 0.18);
+            final bodyScale = formation == 0
+                ? ui.lerpDouble(0.025, 0.08, Curves.easeOut.transform(seed))!
+                : ui.lerpDouble(
+                    0.08,
+                    1,
+                    Curves.easeOutBack.transform(formation),
+                  )!;
+            final textProgress = Curves.easeOut.transform(
+              _segment(_intro.value, 0.54, 0.9),
+            );
+            final cushion = Curves.easeOut.transform(
+              _segment(_intro.value, 0.54, 0.78),
+            );
+            final openingEyes = Curves.easeOut.transform(
+              _segment(_intro.value, 0.3, 0.54),
+            );
+            final exitEye = _exit.value == 0
+                ? 1.0
+                : 1 - math.sin(_segment(_exit.value, 0, 0.62) * math.pi);
+            final exitFade = 1 - _segment(_exit.value, 0.62, 1);
+            final introBreath = _intro.value < 0.54
+                ? 0.0
+                : math.sin(_segment(_intro.value, 0.54, 1) * math.pi * 2);
+            final waitWave = _showWaiting
+                ? math.sin(_waiting.value * math.pi * 2)
+                : 0.0;
+            final scale =
+                bodyScale * (1 + introBreath * 0.018 + _exit.value * 0.035);
+            return Opacity(
+              opacity: exitFade,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0, 0.62),
+                    radius: 1.05,
+                    colors: [
+                      Color(0x52E7B998),
+                      Color(0xFFF3E6D9),
+                      LumoColors.canvas,
+                    ],
+                    stops: [0, 0.5, 1],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Positioned(
+                        top: 54 - (1 - textProgress) * 12,
+                        left: 24,
+                        right: 24,
+                        child: Opacity(
+                          opacity: textProgress,
+                          child: const Text(
+                            'Lumo',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'LumoDisplay',
+                              fontSize: 48,
+                              color: LumoColors.ink,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x55E7B998),
+                                  blurRadius: 14,
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-                          Align(
-                            alignment: const Alignment(0, 0.2),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final size = math.min(
-                                    constraints.maxWidth * 0.82, 360.0);
-                                return Transform.rotate(
-                                  angle: waitWave * 0.035,
-                                  child: Transform.scale(
-                                    scale: scale,
-                                    child: Opacity(
-                                      opacity: _segment(_intro.value, 0, 0.38),
-                                      child: CustomPaint(
-                                        size: Size.square(size),
-                                        painter: _LumoMascotPainter(
-                                          eyeOpen: (openingEyes * exitEye)
-                                              .clamp(0.0, 1.0)
-                                              .toDouble(),
-                                          cushionOpacity: cushion,
-                                          showWaiting: _showWaiting,
-                                          waitWave: waitWave,
-                                          pulse:
-                                              math.sin(_exit.value * math.pi),
-                                        ),
-                                      ),
+                        ),
+                      ),
+                      Align(
+                        alignment: const Alignment(0, 0.2),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final size = math.min(
+                              constraints.maxWidth * 0.82,
+                              360.0,
+                            );
+                            return Transform.rotate(
+                              angle: waitWave * 0.035,
+                              child: Transform.scale(
+                                scale: scale,
+                                child: Opacity(
+                                  opacity: _segment(_intro.value, 0, 0.38),
+                                  child: CustomPaint(
+                                    size: Size.square(size),
+                                    painter: _LumoMascotPainter(
+                                      eyeOpen: (openingEyes * exitEye)
+                                          .clamp(0.0, 1.0)
+                                          .toDouble(),
+                                      cushionOpacity: cushion,
+                                      showWaiting: _showWaiting,
+                                      waitWave: waitWave,
+                                      pulse: math.sin(_exit.value * math.pi),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 64 - (1 - textProgress) * 12,
-                            left: 24,
-                            right: 24,
-                            child: Opacity(
-                              opacity: textProgress,
-                              child: const Text(
-                                '点亮你的每一刻',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    letterSpacing: 3,
-                                    color: LumoColors.actionClay),
+                                ),
                               ),
+                            );
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 64 - (1 - textProgress) * 12,
+                        left: 24,
+                        right: 24,
+                        child: Opacity(
+                          opacity: textProgress,
+                          child: const Text(
+                            '点亮你的每一刻',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              letterSpacing: 3,
+                              color: LumoColors.actionClay,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _LumoMascotPainter extends CustomPainter {
@@ -255,14 +270,17 @@ class _LumoMascotPainter extends CustomPainter {
     final bodyWidth = size.width * 0.78;
     final bodyHeight = bodyWidth / 1.05;
     final body = Rect.fromCenter(
-        center: Offset(size.width / 2, size.height * 0.53),
-        width: bodyWidth,
-        height: bodyHeight);
+      center: Offset(size.width / 2, size.height * 0.53),
+      width: bodyWidth,
+      height: bodyHeight,
+    );
     final outerGlow = Paint()
       ..color = const Color(0xFFFA709A).withValues(alpha: 0.22 + pulse * 0.12)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, 20 + pulse * 12);
     canvas.drawOval(
-        body.inflate(size.width * (0.025 + pulse * 0.025)), outerGlow);
+      body.inflate(size.width * (0.025 + pulse * 0.025)),
+      outerGlow,
+    );
 
     final bodyPaint = Paint()
       ..shader = ui.Gradient.radial(
@@ -317,14 +335,16 @@ class _LumoMascotPainter extends CustomPainter {
         height: body.height * 0.13,
       );
       final cushionGlow = Paint()
-        ..color =
-            const Color(0xFFFDB813).withValues(alpha: cushionOpacity * 0.4)
+        ..color = const Color(
+          0xFFFDB813,
+        ).withValues(alpha: cushionOpacity * 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = size.width * 0.045
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
       final cushion = Paint()
-        ..color =
-            const Color(0xFFFDB813).withValues(alpha: cushionOpacity * 0.4)
+        ..color = const Color(
+          0xFFFDB813,
+        ).withValues(alpha: cushionOpacity * 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = size.width * 0.018;
       canvas.drawOval(cushionRect, cushionGlow);
@@ -343,31 +363,45 @@ class _LumoMascotPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeWidth = radius * 0.24;
       canvas.drawArc(
-          Rect.fromCenter(
-              center: center, width: radius * 1.65, height: radius * 0.8),
-          math.pi,
-          math.pi,
-          false,
-          closed);
+        Rect.fromCenter(
+          center: center,
+          width: radius * 1.65,
+          height: radius * 0.8,
+        ),
+        math.pi,
+        math.pi,
+        false,
+        closed,
+      );
       return;
     }
     final eye = Rect.fromCenter(
-        center: center, width: radius * 2, height: radius * 2 * eyeOpen);
+      center: center,
+      width: radius * 2,
+      height: radius * 2 * eyeOpen,
+    );
     canvas.drawOval(eye, Paint()..color = const Color(0xFF4A2C1A));
     final highlight = Paint()..color = Colors.white;
     canvas.drawCircle(
-        center.translate(-radius * 0.38, -radius * 0.35 * eyeOpen),
-        radius * 0.23,
-        highlight);
-    canvas.drawCircle(center.translate(radius * 0.38, radius * 0.38 * eyeOpen),
-        radius * 0.11, highlight);
+      center.translate(-radius * 0.38, -radius * 0.35 * eyeOpen),
+      radius * 0.23,
+      highlight,
+    );
+    canvas.drawCircle(
+      center.translate(radius * 0.38, radius * 0.38 * eyeOpen),
+      radius * 0.11,
+      highlight,
+    );
   }
 
   void _drawWaitingBubble(Canvas canvas, Size size, double y) {
     final center = Offset(size.width / 2 + waitWave * 3, y);
     final bubble = RRect.fromRectAndRadius(
       Rect.fromCenter(
-          center: center, width: size.width * 0.2, height: size.height * 0.09),
+        center: center,
+        width: size.width * 0.2,
+        height: size.height * 0.09,
+      ),
       Radius.circular(size.width * 0.045),
     );
     final glow = Paint()
@@ -378,7 +412,10 @@ class _LumoMascotPainter extends CustomPainter {
     final dot = Paint()..color = const Color(0xFFFFD93D);
     for (var i = -1; i <= 1; i++) {
       canvas.drawCircle(
-          center.translate(i * size.width * 0.035, 0), size.width * 0.009, dot);
+        center.translate(i * size.width * 0.035, 0),
+        size.width * 0.009,
+        dot,
+      );
     }
   }
 

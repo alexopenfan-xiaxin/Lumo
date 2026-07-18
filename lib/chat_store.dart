@@ -3,8 +3,8 @@ import 'package:sqflite/sqflite.dart';
 
 class ChatStore {
   ChatStore({DatabaseFactory? factory, String? databasePath})
-      : _factory = factory,
-        _databasePath = databasePath;
+    : _factory = factory,
+      _databasePath = databasePath;
 
   final DatabaseFactory? _factory;
   final String? _databasePath;
@@ -40,7 +40,8 @@ class ChatStore {
             )
           ''');
           await database.execute(
-              'CREATE INDEX messages_conversation_time ON messages(conversation_id, created_at)');
+            'CREATE INDEX messages_conversation_time ON messages(conversation_id, created_at)',
+          );
           await database.execute('''
             CREATE TABLE memories (
               id TEXT PRIMARY KEY,
@@ -51,14 +52,17 @@ class ChatStore {
             )
           ''');
           await database.execute(
-              'CREATE INDEX memories_agent_status ON memories(agent_id, status)');
+            'CREATE INDEX memories_agent_status ON memories(agent_id, status)',
+          );
           await database.execute(
-              'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+            'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+          );
         },
         onUpgrade: (database, oldVersion, newVersion) async {
           if (oldVersion < 2)
             await database.execute(
-                'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+              'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+            );
         },
       ),
     );
@@ -87,8 +91,12 @@ class ChatStore {
   }
 
   Future<Conversation?> conversation(String conversationId) async {
-    final rows = await (await _db).query('conversations',
-        where: 'id = ?', whereArgs: [conversationId], limit: 1);
+    final rows = await (await _db).query(
+      'conversations',
+      where: 'id = ?',
+      whereArgs: [conversationId],
+      limit: 1,
+    );
     return rows.isEmpty ? null : Conversation.fromRow(rows.first);
   }
 
@@ -132,14 +140,26 @@ class ChatStore {
     final database = await _db;
     await database.transaction((transaction) async {
       await transaction.insert('messages', message.toRow());
-      await transaction.update('conversations', {'updated_at': now},
-          where: 'id = ?', whereArgs: [conversationId]);
+      await transaction.update(
+        'conversations',
+        {'updated_at': now},
+        where: 'id = ?',
+        whereArgs: [conversationId],
+      );
       if (role == MessageRole.user) {
-        final conversation = await transaction.query('conversations',
-            columns: ['title'], where: 'id = ?', whereArgs: [conversationId]);
+        final conversation = await transaction.query(
+          'conversations',
+          columns: ['title'],
+          where: 'id = ?',
+          whereArgs: [conversationId],
+        );
         if (conversation.single['title'] == '新的对话') {
-          await transaction.update('conversations', {'title': _title(content)},
-              where: 'id = ?', whereArgs: [conversationId]);
+          await transaction.update(
+            'conversations',
+            {'title': _title(content)},
+            where: 'id = ?',
+            whereArgs: [conversationId],
+          );
         }
       }
     });
@@ -158,24 +178,33 @@ class ChatStore {
         'conversations',
         {
           'summary': summary,
-          'updated_at': DateTime.now().millisecondsSinceEpoch
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
         },
         where: 'id = ?',
         whereArgs: [conversationId],
       );
       final marks = List.filled(messageIds.length, '?').join(',');
-      await transaction.delete('messages',
-          where: 'id IN ($marks)', whereArgs: messageIds);
+      await transaction.delete(
+        'messages',
+        where: 'id IN ($marks)',
+        whereArgs: messageIds,
+      );
     });
   }
 
   Future<void> deleteConversation(String conversationId) async {
     final database = await _db;
     await database.transaction((transaction) async {
-      await transaction.delete('messages',
-          where: 'conversation_id = ?', whereArgs: [conversationId]);
-      await transaction.delete('conversations',
-          where: 'id = ?', whereArgs: [conversationId]);
+      await transaction.delete(
+        'messages',
+        where: 'conversation_id = ?',
+        whereArgs: [conversationId],
+      );
+      await transaction.delete(
+        'conversations',
+        where: 'id = ?',
+        whereArgs: [conversationId],
+      );
     });
   }
 
@@ -197,15 +226,19 @@ class ChatStore {
   }
 
   Future<void> addMemoryCandidates(
-      String agentId, List<String> candidates) async {
+    String agentId,
+    List<String> candidates,
+  ) async {
     final database = await _db;
     final existing = await memories(agentId);
     final existingTexts = existing.map((memory) => memory.content).toSet();
-    for (final content in candidates
-        .map((candidate) => candidate.trim())
-        .where((candidate) => candidate.isNotEmpty)) {
-      final conciseContent =
-          content.length > 240 ? content.substring(0, 240) : content;
+    for (final content
+        in candidates
+            .map((candidate) => candidate.trim())
+            .where((candidate) => candidate.isNotEmpty)) {
+      final conciseContent = content.length > 240
+          ? content.substring(0, 240)
+          : content;
       if (existingTexts.contains(conciseContent)) continue;
       await database.insert(
         'memories',
@@ -222,22 +255,34 @@ class ChatStore {
   }
 
   Future<void> updateMemory(MemoryEntry memory) async {
-    await (await _db).update('memories', memory.toRow(),
-        where: 'id = ?', whereArgs: [memory.id]);
+    await (await _db).update(
+      'memories',
+      memory.toRow(),
+      where: 'id = ?',
+      whereArgs: [memory.id],
+    );
   }
 
   Future<void> deleteMemory(String memoryId) async =>
       (await _db).delete('memories', where: 'id = ?', whereArgs: [memoryId]);
 
-  Future<void> clearMemories(String agentId) async => (await _db)
-      .delete('memories', where: 'agent_id = ?', whereArgs: [agentId]);
+  Future<void> clearMemories(String agentId) async => (await _db).delete(
+    'memories',
+    where: 'agent_id = ?',
+    whereArgs: [agentId],
+  );
 
   Future<void> deleteMessage(String messageId) async =>
       (await _db).delete('messages', where: 'id = ?', whereArgs: [messageId]);
 
   Future<String?> setting(String key) async {
-    final rows = await (await _db).query('settings',
-        columns: ['value'], where: 'key = ?', whereArgs: [key], limit: 1);
+    final rows = await (await _db).query(
+      'settings',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
     return rows.isEmpty ? null : rows.single['value']! as String;
   }
 
@@ -246,35 +291,43 @@ class ChatStore {
     if (value == null) {
       await database.delete('settings', where: 'key = ?', whereArgs: [key]);
     } else {
-      await database.insert('settings', {'key': key, 'value': value},
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      await database.insert('settings', {
+        'key': key,
+        'value': value,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
   Future<CompanionPreferences> companionPreferences() async {
-    final rows = await (await _db).query('settings',
-        where: 'key IN (?, ?)',
-        whereArgs: const ['companion_personality', 'conversation_topic']);
+    final rows = await (await _db).query(
+      'settings',
+      where: 'key IN (?, ?)',
+      whereArgs: const ['companion_personality', 'conversation_topic'],
+    );
     final values = {
-      for (final row in rows) row['key']! as String: row['value']! as String
+      for (final row in rows) row['key']! as String: row['value']! as String,
     };
     return CompanionPreferences(
-      personality: values['companion_personality'] ??
+      personality:
+          values['companion_personality'] ??
           CompanionPreferences.defaultPersonality,
       topic: values['conversation_topic'] ?? CompanionPreferences.defaultTopic,
     );
   }
 
   Future<void> saveCompanionPreferences(
-      CompanionPreferences preferences) async {
+    CompanionPreferences preferences,
+  ) async {
     final database = await _db;
     final batch = database.batch();
-    batch.insert('settings',
-        {'key': 'companion_personality', 'value': preferences.personality},
-        conflictAlgorithm: ConflictAlgorithm.replace);
-    batch.insert(
-        'settings', {'key': 'conversation_topic', 'value': preferences.topic},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    batch.insert('settings', {
+      'key': 'companion_personality',
+      'value': preferences.personality,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    batch.insert('settings', {
+      'key': 'conversation_topic',
+      'value': preferences.topic,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     await batch.commit(noResult: true);
   }
 
@@ -305,31 +358,31 @@ class Conversation {
   final int updatedAt;
 
   factory Conversation.fromRow(Map<String, Object?> row) => Conversation(
-        id: row['id']! as String,
-        agentId: row['agent_id']! as String,
-        title: row['title']! as String,
-        summary: row['summary']! as String,
-        createdAt: row['created_at']! as int,
-        updatedAt: row['updated_at']! as int,
-      );
+    id: row['id']! as String,
+    agentId: row['agent_id']! as String,
+    title: row['title']! as String,
+    summary: row['summary']! as String,
+    createdAt: row['created_at']! as int,
+    updatedAt: row['updated_at']! as int,
+  );
 
   Conversation copyWith({String? title, String? summary}) => Conversation(
-        id: id,
-        agentId: agentId,
-        title: title ?? this.title,
-        summary: summary ?? this.summary,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-      );
+    id: id,
+    agentId: agentId,
+    title: title ?? this.title,
+    summary: summary ?? this.summary,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 
   Map<String, Object?> toRow() => {
-        'id': id,
-        'agent_id': agentId,
-        'title': title,
-        'summary': summary,
-        'created_at': createdAt,
-        'updated_at': updatedAt,
-      };
+    'id': id,
+    'agent_id': agentId,
+    'title': title,
+    'summary': summary,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
 }
 
 class StoredMessage {
@@ -348,20 +401,20 @@ class StoredMessage {
   final int createdAt;
 
   factory StoredMessage.fromRow(Map<String, Object?> row) => StoredMessage(
-        id: row['id']! as String,
-        conversationId: row['conversation_id']! as String,
-        role: row['role'] == 'user' ? MessageRole.user : MessageRole.assistant,
-        content: row['content']! as String,
-        createdAt: row['created_at']! as int,
-      );
+    id: row['id']! as String,
+    conversationId: row['conversation_id']! as String,
+    role: row['role'] == 'user' ? MessageRole.user : MessageRole.assistant,
+    content: row['content']! as String,
+    createdAt: row['created_at']! as int,
+  );
 
   Map<String, Object?> toRow() => {
-        'id': id,
-        'conversation_id': conversationId,
-        'role': role.name,
-        'content': content,
-        'created_at': createdAt,
-      };
+    'id': id,
+    'conversation_id': conversationId,
+    'role': role.name,
+    'content': content,
+    'created_at': createdAt,
+  };
 }
 
 enum MemoryStatus { pending, approved, rejected }
@@ -382,28 +435,28 @@ class MemoryEntry {
   final int createdAt;
 
   factory MemoryEntry.fromRow(Map<String, Object?> row) => MemoryEntry(
-        id: row['id']! as String,
-        agentId: row['agent_id']! as String,
-        content: row['content']! as String,
-        status: MemoryStatus.values.byName(row['status']! as String),
-        createdAt: row['created_at']! as int,
-      );
+    id: row['id']! as String,
+    agentId: row['agent_id']! as String,
+    content: row['content']! as String,
+    status: MemoryStatus.values.byName(row['status']! as String),
+    createdAt: row['created_at']! as int,
+  );
 
   MemoryEntry copyWith({String? content, MemoryStatus? status}) => MemoryEntry(
-        id: id,
-        agentId: agentId,
-        content: content ?? this.content,
-        status: status ?? this.status,
-        createdAt: createdAt,
-      );
+    id: id,
+    agentId: agentId,
+    content: content ?? this.content,
+    status: status ?? this.status,
+    createdAt: createdAt,
+  );
 
   Map<String, Object?> toRow() => {
-        'id': id,
-        'agent_id': agentId,
-        'content': content,
-        'status': status.name,
-        'created_at': createdAt,
-      };
+    'id': id,
+    'agent_id': agentId,
+    'content': content,
+    'status': status.name,
+    'created_at': createdAt,
+  };
 }
 
 class CompanionPreferences {
