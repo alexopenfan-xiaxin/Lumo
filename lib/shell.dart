@@ -11,11 +11,13 @@ class LumoShell extends StatefulWidget {
   const LumoShell({
     required this.themeMode,
     required this.onThemeModeChanged,
+    this.onReady,
     super.key,
   });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final VoidCallback? onReady;
 
   @override
   State<LumoShell> createState() => _LumoShellState();
@@ -27,6 +29,7 @@ class _LumoShellState extends State<LumoShell> {
   final _dockKey = GlobalKey();
   List<Companion> _companions = companions;
   String? _catalogError;
+  bool _reportedReady = false;
 
   @override
   void initState() {
@@ -41,6 +44,11 @@ class _LumoShellState extends State<LumoShell> {
       if (mounted) setState(() => _companions = loaded);
     } on AgentCatalogException catch (error) {
       if (mounted) setState(() => _catalogError = error.message);
+    } finally {
+      if (mounted && !_reportedReady) {
+        _reportedReady = true;
+        widget.onReady?.call();
+      }
     }
   }
 

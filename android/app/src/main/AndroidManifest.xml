@@ -6,7 +6,7 @@
     <application
         android:label="Lumo"
         android:name="${applicationName}"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/lumo_mascot_icon"
         android:allowBackup="false"
         android:usesCleartextTraffic="false">
         <activity

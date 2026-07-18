@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowSplashScreenBackground">@color/lumo_canvas</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/lumo_canvas</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/lumo_space</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/lumo_mascot_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/lumo_space</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>

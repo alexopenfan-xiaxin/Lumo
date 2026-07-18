@@ -168,8 +168,8 @@ const notices = <NoticeItem>[
   NoticeItem(
     tag: '更新',
     title: '1.3.0：界面焕新与 arm64 版本',
-    description: '五个主要界面更统一、更清晰，也更适合横屏与大字体。',
-    detail: 'Lumo 的首页、智能体、探索、聊天和设置现已完成系统级界面焕新：保留温暖安静的原有气质，同时优化视觉层级、深色模式、横屏布局、大字体与交互反馈。为减少下载体积，Release APK 仍仅支持 64 位 ARM Android 设备；32 位设备无法安装。可在“设置 → 关于 Lumo”检查更新。',
+    description: '全新发光团子开屏登场，五个主要界面也更统一、更清晰。',
+    detail: 'Lumo 现在会由发光团子陪你一起醒来：它从微光中成型、睁眼、呼吸，并在准备完成时眨眼送你进入首页；等待较久时，它会轻轻摇晃告诉你“我在呢”。首页、智能体、探索、聊天和设置也已完成系统级界面焕新，并优化深色模式、横屏、大字体与交互反馈。Release APK 仍仅支持 64 位 ARM Android 设备；32 位设备无法安装。可在“设置 → 关于 Lumo”检查更新。',
     time: '刚刚',
     color: LumoColors.clay,
     icon: Icons.auto_awesome_rounded,

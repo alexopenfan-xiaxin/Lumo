@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lumo/app.dart';
 import 'package:lumo/data.dart';
 import 'package:lumo/pages/chat_page.dart';
+import 'package:lumo/splash_screen.dart';
 import 'package:lumo/theme.dart';
 import 'package:lumo/widgets.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -15,7 +16,7 @@ void main() {
 
   testWidgets('floating navigation reaches every primary page', (tester) async {
     final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(const LumoApp());
+    await tester.pumpWidget(const LumoApp(showSplash: false));
     expect(find.text('Lumo 1.3.0 更新'), findsWidgets);
 
     final homeDock = find.byKey(const ValueKey('dock-首页'));
@@ -54,7 +55,7 @@ void main() {
       tester.platformDispatcher.clearTextScaleFactorTestValue();
     });
 
-    await tester.pumpWidget(const LumoApp());
+    await tester.pumpWidget(const LumoApp(showSplash: false));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
@@ -84,7 +85,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(const LumoApp());
+    await tester.pumpWidget(const LumoApp(showSplash: false));
     await tester.tap(find.byKey(const ValueKey('dock-设置')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('深色模式'), 200);
@@ -119,5 +120,24 @@ void main() {
       ),
     );
     expect(duration, Duration.zero);
+  });
+
+  testWidgets('splash waits gently and exits when startup is ready', (tester) async {
+    var finished = false;
+    await tester.pumpWidget(
+      MaterialApp(home: LumoSplash(ready: false, onFinished: () => finished = true)),
+    );
+    expect(find.text('Lumo'), findsOneWidget);
+    expect(find.text('点亮你的每一刻'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.bySemanticsLabel('Lumo 正在准备陪伴，请稍候'), findsOneWidget);
+    expect(finished, isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(home: LumoSplash(ready: true, onFinished: () => finished = true)),
+    );
+    await tester.pump(const Duration(milliseconds: 650));
+    expect(finished, isTrue);
   });
 }
