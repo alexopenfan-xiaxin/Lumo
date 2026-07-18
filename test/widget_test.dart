@@ -17,7 +17,7 @@ void main() {
   testWidgets('floating navigation reaches every primary page', (tester) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(const LumoApp(showSplash: false));
-    expect(find.text('Lumo 1.3.0 更新'), findsWidgets);
+    expect(find.text(notices.first.title), findsOneWidget);
 
     final homeDock = find.byKey(const ValueKey('dock-首页'));
     expect(homeDock, findsOneWidget);
@@ -60,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Lumo 1.3.0 更新'));
+    await tester.tap(find.text(notices.first.title));
     await tester.pumpAndSettle();
     expect(find.text('知道了'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -90,6 +90,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('深色模式'), 160);
+    await tester.drag(find.byKey(const PageStorageKey('profile-scroll')), const Offset(0, -80));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     expect(Theme.of(tester.element(find.text('游客用户'))).brightness, Brightness.dark);
