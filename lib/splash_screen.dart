@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'theme.dart';
+
 class LumoSplash extends StatefulWidget {
   const LumoSplash({required this.ready, required this.onFinished, super.key});
 
@@ -92,16 +94,16 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
-    value: SystemUiOverlayStyle.light.copyWith(
+    value: SystemUiOverlayStyle.dark.copyWith(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: const Color(0xFF1A1A2E),
+      systemNavigationBarColor: LumoColors.canvas,
     ),
     child: Semantics(
       container: true,
       excludeSemantics: true,
       label: _showWaiting ? 'Lumo 正在准备陪伴，请稍候' : 'Lumo，点亮你的每一刻',
       child: Material(
-        color: const Color(0xFF1A1A2E),
+        color: LumoColors.canvas,
         child: AnimatedBuilder(
           animation: Listenable.merge([_intro, _waiting, _exit]),
           builder: (context, child) {
@@ -125,8 +127,8 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
                   gradient: RadialGradient(
                     center: Alignment(0, 0.62),
                     radius: 1.05,
-                    colors: [Color(0x3DFF8A5C), Color(0x181A1A2E), Color(0xFF1A1A2E)],
-                    stops: [0, 0.48, 1],
+                    colors: [Color(0x52E7B998), Color(0xFFF3E6D9), LumoColors.canvas],
+                    stops: [0, 0.5, 1],
                   ),
                 ),
                 child: SafeArea(
@@ -145,8 +147,8 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
                             style: TextStyle(
                               fontFamily: 'LumoDisplay',
                               fontSize: 48,
-                              color: Color(0xFFFFF6E5),
-                              shadows: [Shadow(color: Color(0x66FFD93D), blurRadius: 14)],
+                              color: LumoColors.ink,
+                              shadows: [Shadow(color: Color(0x55E7B998), blurRadius: 14)],
                             ),
                           ),
                         ),
@@ -187,7 +189,7 @@ class _LumoSplashState extends State<LumoSplash> with TickerProviderStateMixin {
                           child: const Text(
                             '点亮你的每一刻',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 18, letterSpacing: 3, color: Color(0xFFFFF6E5)),
+                            style: TextStyle(fontSize: 18, letterSpacing: 3, color: LumoColors.actionClay),
                           ),
                         ),
                       ),
@@ -320,7 +322,7 @@ class _LumoMascotPainter extends CustomPainter {
       ..color = const Color(0xFFFFD93D).withValues(alpha: 0.18)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
     canvas.drawRRect(bubble, glow);
-    canvas.drawRRect(bubble, Paint()..color = const Color(0xFF39354D));
+    canvas.drawRRect(bubble, Paint()..color = LumoColors.paper);
     final dot = Paint()..color = const Color(0xFFFFD93D);
     for (var i = -1; i <= 1; i++) {
       canvas.drawCircle(center.translate(i * size.width * 0.035, 0), size.width * 0.009, dot);
