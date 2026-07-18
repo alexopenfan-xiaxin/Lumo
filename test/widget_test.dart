@@ -62,6 +62,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('知道了'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.text('知道了'),
+      240,
+      scrollable: find.descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable)),
+    );
     await tester.tap(find.text('知道了'));
     await tester.pumpAndSettle();
 
@@ -82,6 +87,7 @@ void main() {
     await tester.pumpWidget(const LumoApp());
     await tester.tap(find.byKey(const ValueKey('dock-设置')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('深色模式'), 200);
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     expect(Theme.of(tester.element(find.text('设置'))).brightness, Brightness.dark);
