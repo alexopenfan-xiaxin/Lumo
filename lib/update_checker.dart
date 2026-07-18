@@ -47,6 +47,8 @@ class UpdateChecker {
   }
 
   Future<String> downloadAndInstall(Uri url) async => await _channel.invokeMethod<String>('downloadApk', url.toString()) ?? 'failed';
+
+  Future<void> openInBrowser(Uri url) => _channel.invokeMethod<void>('openUrl', url.toString());
 }
 
 int compareVersions(String left, String right) {
