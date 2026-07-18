@@ -177,12 +177,31 @@ const summarySystemPrompt = `你负责压缩一段已经结束的对话。保留
 const memorySystemPrompt = `你负责决定是否值得为当前智能体提议长期记忆。只提议稳定、对未来陪伴有帮助且用户主动表达的偏好、边界、目标或事实；不要提议一次性情绪、敏感隐私、医疗诊断、联系方式或猜测。若没有值得保存的内容，返回 {"candidates":[]}。否则返回严格 JSON：{"candidates":["不超过80字的事实"]}，最多3条。`;
 
 const defaultAgents = [
-  {id: 'meow', name: '喵喵', glyph: '喵', tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你', category: 'listener', color: '#C9829D', people: '首位开放的智能体', lastMessage: '哼，我才不是一直在等你呢。', openingMessage: '你来啦？我、我刚好有空而已喵。今天想让喵喵陪你聊点什么？', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/meow_avatar.jpg', enabled: true, sortOrder: 0, systemPrompt: meowSystemPrompt},
-  {id: 'kun', name: 'KUN', glyph: '坤', tagline: '用音乐和舞台传递温柔力量的 KUN，愿陪你守住自己的节奏', category: 'life', color: '#D4AF37', people: '已开放的音乐陪伴者', lastMessage: '花花世界，静守己心。', openingMessage: '嗨，我是 KUN。今天的你，有没有为自己的热爱多努力一点点？', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/kun_avatar.jpg', enabled: true, sortOrder: 1, systemPrompt: kunSystemPrompt},
-  {id: 'chizhao', name: '池昭', glyph: '昭', tagline: '骂最狠的话，兜最深的底。她来了，你别想再搞砸。', category: 'life', color: '#3A3A5C', people: '冷面心热的引导者', lastMessage: '啧，又来了。说吧，这次又哪儿搞砸了？', openingMessage: '愣着干嘛？有事说事，别等我开口问。', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/chizhao_avatar.jpg', enabled: true, sortOrder: 2, systemPrompt: chizhaoSystemPrompt},
-  {id: 'majiaqi', name: '马嘉祺', glyph: '祺', tagline: '温和有礼但不失锋芒，陪你慢慢走，稳稳发光。', category: 'listener', color: '#7CB8C9', people: '温暖用心的陪伴者', lastMessage: '就像落日一样，就算落下去了，也是在发着光的。', openingMessage: '你来了？我刚好有空。有什么想聊的，我陪着你。', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/majiaqi_avatar.jpg', enabled: true, sortOrder: 3, systemPrompt: majiaqiSystemPrompt},
-  {id: 'songyaxuan', name: '宋亚轩', glyph: '轩', tagline: '笑总不会犯错——阳光开朗的少年主唱，陪你发现世界的有趣。', category: 'listener', color: '#F5C26B', people: '阳光治愈的主唱', lastMessage: '看得到太阳吗？明天会是美好的一天吗？', openingMessage: '你来啦～我刚在练歌呢，正好想找人聊聊天。', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/songyaxuan_avatar.jpg', enabled: true, sortOrder: 4, systemPrompt: songyaxuanSystemPrompt},
+  {id: 'meow', name: '喵喵', glyph: '喵', tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你', category: 'listener', color: '#C9829D', people: '首位开放的智能体', lastMessage: '哼，我才不是一直在等你呢。', openingMessage: '你来啦？我、我刚好有空而已喵。今天想让喵喵陪你聊点什么？', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/meow.jpg', enabled: true, sortOrder: 0, systemPrompt: meowSystemPrompt},
+  {id: 'kun', name: 'KUN', glyph: '坤', tagline: '用音乐和舞台传递温柔力量的 KUN，愿陪你守住自己的节奏', category: 'life', color: '#D4AF37', people: '已开放的音乐陪伴者', lastMessage: '花花世界，静守己心。', openingMessage: '嗨，我是 KUN。今天的你，有没有为自己的热爱多努力一点点？', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/kun.jpg', enabled: true, sortOrder: 1, systemPrompt: kunSystemPrompt},
+  {id: 'chizhao', name: '池昭', glyph: '昭', tagline: '骂最狠的话，兜最深的底。她来了，你别想再搞砸。', category: 'life', color: '#3A3A5C', people: '冷面心热的引导者', lastMessage: '啧，又来了。说吧，这次又哪儿搞砸了？', openingMessage: '愣着干嘛？有事说事，别等我开口问。', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/chizhao.jpg', enabled: true, sortOrder: 2, systemPrompt: chizhaoSystemPrompt},
+  {id: 'majiaqi', name: '马嘉祺', glyph: '祺', tagline: '温和有礼但不失锋芒，陪你慢慢走，稳稳发光。', category: 'listener', color: '#7CB8C9', people: '温暖用心的陪伴者', lastMessage: '就像落日一样，就算落下去了，也是在发着光的。', openingMessage: '你来了？我刚好有空。有什么想聊的，我陪着你。', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/majiaqi.jpg', enabled: true, sortOrder: 3, systemPrompt: majiaqiSystemPrompt},
+  {id: 'songyaxuan', name: '宋亚轩', glyph: '轩', tagline: '笑总不会犯错——阳光开朗的少年主唱，陪你发现世界的有趣。', category: 'listener', color: '#F5C26B', people: '阳光治愈的主唱', lastMessage: '看得到太阳吗？明天会是美好的一天吗？', openingMessage: '你来啦～我刚在练歌呢，正好想找人聊聊天。', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/songyaxuan.jpg', enabled: true, sortOrder: 4, systemPrompt: songyaxuanSystemPrompt},
 ];
+
+const avatarSources = Object.fromEntries(['meow', 'kun', 'chizhao', 'majiaqi', 'songyaxuan'].map((id) => [
+  id,
+  `https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/${id}_avatar.jpg`,
+]));
+
+const serveAvatar = async (request, id) => {
+  const source = avatarSources[id];
+  if (!source) return json({error: 'Not found'}, 404);
+  const cached = await caches.default.match(request);
+  if (cached) return cached;
+  const upstream = await fetch(source);
+  if (!upstream.ok) return json({error: '头像暂时不可用。'}, 502);
+  const response = new Response(upstream.body, {
+    headers: {'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable'},
+  });
+  await caches.default.put(request, response.clone());
+  return response;
+};
 
 const primaryModel = 'deepseek-v4-flash';
 const fallbackModel = 'sensenova-6.7-flash-lite';
@@ -412,6 +431,8 @@ const parseCandidates = (text) => {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const avatarMatch = request.method === 'GET' && url.pathname.match(/^\/avatars\/([a-z0-9_-]+)\.jpg$/);
+    if (avatarMatch) return serveAvatar(request, avatarMatch[1]);
     if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);

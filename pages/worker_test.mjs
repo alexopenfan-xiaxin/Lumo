@@ -20,5 +20,5 @@ assert.equal(validAgent(agent), true);
 assert.equal(validAgent({...agent, id: '../bad'}), false);
 assert.equal(validAgent({...agent, avatarUrl: 'http://unsafe.example/avatar.jpg'}), false);
 assert.equal(validAgent({...agent, color: 'purple'}), false);
-assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://raw.githubusercontent.com/alexopenfan-xiaxin/Lumo/main/assets/images/meow_avatar.jpg'}).avatarUrl, '');
+assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/meow.jpg'}).avatarUrl, '');
 assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://example.com/new.jpg'}).avatarUrl, 'https://example.com/new.jpg');
