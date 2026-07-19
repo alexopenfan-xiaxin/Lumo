@@ -587,9 +587,7 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(
-          SnackBar(content: Text(error.message ?? '无法播放语音回复。')),
-        );
+        ).showSnackBar(SnackBar(content: Text(error.message ?? '无法播放语音回复。')));
       }
     }
   }
