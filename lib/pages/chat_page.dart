@@ -174,8 +174,10 @@ class _ChatPageState extends State<ChatPage> {
         process: reply.process,
         sources: reply.sources
             .map(
-              (source) =>
-                  MessageSource(title: source.title, url: source.url),
+              (source) => MessageSource(
+                title: source.title,
+                url: source.url,
+              ),
             )
             .toList(),
       );

@@ -459,11 +459,10 @@ class MessageSource {
   final String title;
   final String url;
 
-  factory MessageSource.fromJson(Map<dynamic, dynamic> json) =>
-      MessageSource(
-        title: json['title'] as String? ?? '来源',
-        url: json['url'] as String? ?? '',
-      );
+  factory MessageSource.fromJson(Map<dynamic, dynamic> json) => MessageSource(
+    title: json['title'] as String? ?? '来源',
+    url: json['url'] as String? ?? '',
+  );
 
   Map<String, String> toJson() => {'title': title, 'url': url};
 }
