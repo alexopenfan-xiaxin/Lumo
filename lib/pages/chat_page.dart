@@ -43,6 +43,9 @@ class _ChatPageState extends State<ChatPage> {
   Conversation? _conversation;
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
+  String _streamedText = '';
+  String _streamedProcess = '';
+  List<MessageSource> _streamedSources = const [];
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -140,12 +143,14 @@ class _ChatPageState extends State<ChatPage> {
       _messages.add(_ChatMessage.fromStored(userMessage));
       _inputController.clear();
       _isReplying = true;
+      _streamedText = '';
+      _streamedProcess = '正在整理对话上下文。';
+      _streamedSources = const [];
     });
     _scrollToEnd();
 
     try {
       var context = await _prepareContext(conversation.id);
-      final preferences = await _store.companionPreferences();
       AiChatReply reply;
       try {
         reply = await _aiChatClient.reply(
@@ -153,8 +158,7 @@ class _ChatPageState extends State<ChatPage> {
           agentId: widget.companion.id,
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
-          personality: preferences.personality,
-          topic: preferences.topic,
+          onProgress: _updateStream,
         );
       } on AiContextLimitException {
         context = await _prepareContext(conversation.id, forceTrim: true);
@@ -163,8 +167,7 @@ class _ChatPageState extends State<ChatPage> {
           agentId: widget.companion.id,
           summary: context.summary,
           memories: context.memories.map((memory) => memory.content).toList(),
-          personality: preferences.personality,
-          topic: preferences.topic,
+          onProgress: _updateStream,
         );
       }
       final assistantMessage = await _store.addMessage(
@@ -213,6 +216,18 @@ class _ChatPageState extends State<ChatPage> {
         _scrollToEnd();
       }
     }
+  }
+
+  void _updateStream(AiChatProgress progress) {
+    if (!mounted) return;
+    setState(() {
+      _streamedText = progress.text;
+      _streamedProcess = progress.process;
+      _streamedSources = progress.sources
+          .map((source) => MessageSource(title: source.title, url: source.url))
+          .toList();
+    });
+    _scrollToEnd();
   }
 
   Future<_PreparedContext> _prepareContext(
@@ -732,7 +747,16 @@ class _ChatPageState extends State<ChatPage> {
                                 duration: messageDuration,
                               ),
                         if (_isReplying)
-                          _TypingBubble(color: widget.companion.color),
+                          _MessageBubble(
+                            message: _ChatMessage(
+                              id: 'streaming',
+                              text: _streamedText,
+                              fromUser: false,
+                              process: _streamedProcess,
+                              sources: _streamedSources,
+                              isStreaming: true,
+                            ),
+                          ),
                       ],
                     ),
             ),
@@ -892,6 +916,7 @@ class _ChatMessage {
     required this.fromUser,
     this.process = '',
     this.sources = const [],
+    this.isStreaming = false,
   });
 
   final String id;
@@ -899,6 +924,7 @@ class _ChatMessage {
   final bool fromUser;
   final String process;
   final List<MessageSource> sources;
+  final bool isStreaming;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
@@ -942,68 +968,36 @@ class _MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            message.text,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: message.fromUser
-                  ? Theme.of(context).colorScheme.onPrimary
-                  : null,
-            ),
-          ),
           if (!message.fromUser && message.process.isNotEmpty)
             _ProcessDisclosure(
               process: message.process,
-              sources: message.sources,
+              initiallyExpanded: message.isStreaming,
             ),
+          if (message.text.isNotEmpty)
+            Text(
+              message.text,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: message.fromUser
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : null,
+              ),
+            ),
+          if (!message.fromUser && message.sources.isNotEmpty)
+            _SourceList(sources: message.sources),
         ],
       ),
     ),
   );
 }
 
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: Semantics(
-      label: '陪伴者正在回复',
-      liveRegion: true,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 36,
-              child: LinearProgressIndicator(
-                color: color,
-                backgroundColor: color.withValues(alpha: 0.12),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('正在思考…'),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class _ProcessDisclosure extends StatelessWidget {
-  const _ProcessDisclosure({required this.process, required this.sources});
+  const _ProcessDisclosure({
+    required this.process,
+    required this.initiallyExpanded,
+  });
 
   final String process;
-  final List<MessageSource> sources;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1012,20 +1006,36 @@ class _ProcessDisclosure extends StatelessWidget {
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 8),
       leading: const Icon(Icons.psychology_outlined),
-      title: const Text('处理过程'),
+      title: const Text('思考过程'),
       subtitle: Text(process),
+      initiallyExpanded: initiallyExpanded,
       children: [
-        if (sources.isNotEmpty)
-          for (final source in sources)
-            ListTile(
-              dense: true,
-              title: Text(
-                source.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: SelectableText(source.url),
-            ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: SelectableText(process),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SourceList extends StatelessWidget {
+  const _SourceList({required this.sources});
+
+  final List<MessageSource> sources;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('来源', style: Theme.of(context).textTheme.labelLarge),
+        for (final source in sources)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: SelectableText('${source.title}\n${source.url}'),
+          ),
       ],
     ),
   );

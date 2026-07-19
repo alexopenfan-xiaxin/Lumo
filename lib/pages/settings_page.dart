@@ -28,10 +28,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final _store = ChatStore();
   late final _authClient = AuthClient(store: _store);
   AccountSession? _account;
-  CompanionPreferences _preferences = const CompanionPreferences(
-    personality: CompanionPreferences.defaultPersonality,
-    topic: CompanionPreferences.defaultTopic,
-  );
 
   @override
   void initState() {
@@ -40,13 +36,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _load() async {
-    final preferences = await _store.companionPreferences();
     final account = await _authClient.session();
     if (mounted) {
-      setState(() {
-        _preferences = preferences;
-        _account = account;
-      });
+      setState(() => _account = account);
     }
   }
 
@@ -193,54 +185,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (account != null && mounted) setState(() => _account = account);
   }
 
-  Future<void> _selectPreference({
-    required String title,
-    required List<String> values,
-    required bool isPersonality,
-  }) async {
-    final current = isPersonality
-        ? _preferences.personality
-        : _preferences.topic;
-    final value = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              RadioGroup<String>(
-                groupValue: current,
-                onChanged: (selected) => Navigator.pop(context, selected),
-                child: Column(
-                  children: [
-                    for (final item in values)
-                      RadioListTile<String>(value: item, title: Text(item)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (value == null) return;
-    final next = CompanionPreferences(
-      personality: isPersonality ? value : _preferences.personality,
-      topic: isPersonality ? _preferences.topic : value,
-    );
-    await _store.saveCompanionPreferences(next);
-    if (mounted) setState(() => _preferences = next);
-  }
-
   Future<void> _showPrivacy() => showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
@@ -361,7 +305,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FormatException {
       _showUpdateError('下载内容不是有效的安装包。');
     } on FileSystemException {
-      _showUpdateError('无法保存更新包，请检查存储空间。');
+      _showUpdateError('更新包处理失败，请重新下载后再试。');
     } on Exception {
       _showUpdateError('无法完成更新，请稍后再试。');
     }
@@ -490,65 +434,12 @@ class _ProfilePageState extends State<ProfilePage> {
     ),
   );
 
-  Future<void> _showPreferences() async {
-    final selection = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('陪伴偏好', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              _SettingsGroup(
-                children: [
-                  _SettingsRow(
-                    title: '陪伴性格',
-                    value: _preferences.personality,
-                    onTap: () => Navigator.pop(context, true),
-                  ),
-                  _SettingsRow(
-                    title: '对话主题',
-                    value: _preferences.topic,
-                    onTap: () => Navigator.pop(context, false),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (selection == null || !mounted) return;
-    await _selectPreference(
-      title: selection ? '选择全局陪伴性格' : '选择全局对话主题',
-      values: selection
-          ? const ['温柔倾听', '理性分析', '轻松鼓励']
-          : const ['日常放松', '情绪梳理', '自我成长'],
-      isPersonality: selection,
-    );
-  }
-
   Future<void> _openSettings() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => _SettingsDetailPage(
           account: () => _account,
-          personality: () => _preferences.personality,
-          topic: () => _preferences.topic,
           onAccount: _showAccount,
-          onPersonality: () => _selectPreference(
-            title: '选择全局陪伴性格',
-            values: const ['温柔倾听', '理性分析', '轻松鼓励'],
-            isPersonality: true,
-          ),
-          onTopic: () => _selectPreference(
-            title: '选择全局对话主题',
-            values: const ['日常放松', '情绪梳理', '自我成长'],
-            isPersonality: false,
-          ),
           onPrivacy: _showPrivacy,
           onLicenses: _showLicenses,
           onAbout: _showAbout,
@@ -627,10 +518,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   label: _account == null ? '登录 / 注册' : '账号信息',
                   onTap: _showAccount,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ProfileButton(label: '陪伴偏好', onTap: _showPreferences),
               ),
             ],
           ),
@@ -756,11 +643,7 @@ class _ProfileShortcut extends StatelessWidget {
 class _SettingsDetailPage extends StatefulWidget {
   const _SettingsDetailPage({
     required this.account,
-    required this.personality,
-    required this.topic,
     required this.onAccount,
-    required this.onPersonality,
-    required this.onTopic,
     required this.onPrivacy,
     required this.onLicenses,
     required this.onAbout,
@@ -768,11 +651,7 @@ class _SettingsDetailPage extends StatefulWidget {
   });
 
   final AccountSession? Function() account;
-  final String Function() personality;
-  final String Function() topic;
   final Future<void> Function() onAccount;
-  final Future<void> Function() onPersonality;
-  final Future<void> Function() onTopic;
   final Future<void> Function() onPrivacy;
   final Future<void> Function() onLicenses;
   final Future<void> Function() onAbout;
@@ -806,23 +685,6 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
             32,
           ),
           children: [
-            const _SettingsLabel('陪伴'),
-            _SettingsGroup(
-              children: [
-                _SettingsRow(
-                  title: '陪伴性格',
-                  value: widget.personality(),
-                  onTap: () => _run(widget.onPersonality),
-                ),
-                _SettingsRow(
-                  title: '对话主题',
-                  value: widget.topic(),
-                  onTap: () => _run(widget.onTopic),
-                ),
-                const _SettingsRow(title: '陪伴语言', value: '中文'),
-              ],
-            ),
-            const SizedBox(height: 22),
             const _SettingsLabel('账号与隐私'),
             _SettingsGroup(
               children: [

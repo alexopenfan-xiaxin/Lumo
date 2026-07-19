@@ -313,39 +313,6 @@ class ChatStore {
     }
   }
 
-  Future<CompanionPreferences> companionPreferences() async {
-    final rows = await (await _db).query(
-      'settings',
-      where: 'key IN (?, ?)',
-      whereArgs: const ['companion_personality', 'conversation_topic'],
-    );
-    final values = {
-      for (final row in rows) row['key']! as String: row['value']! as String,
-    };
-    return CompanionPreferences(
-      personality:
-          values['companion_personality'] ??
-          CompanionPreferences.defaultPersonality,
-      topic: values['conversation_topic'] ?? CompanionPreferences.defaultTopic,
-    );
-  }
-
-  Future<void> saveCompanionPreferences(
-    CompanionPreferences preferences,
-  ) async {
-    final database = await _db;
-    final batch = database.batch();
-    batch.insert('settings', {
-      'key': 'companion_personality',
-      'value': preferences.personality,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-    batch.insert('settings', {
-      'key': 'conversation_topic',
-      'value': preferences.topic,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-    await batch.commit(noResult: true);
-  }
-
   String _id(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().hashCode}';
 
@@ -505,14 +472,4 @@ class MemoryEntry {
     'status': status.name,
     'created_at': createdAt,
   };
-}
-
-class CompanionPreferences {
-  const CompanionPreferences({required this.personality, required this.topic});
-
-  static const defaultPersonality = '温柔倾听';
-  static const defaultTopic = '日常放松';
-
-  final String personality;
-  final String topic;
 }

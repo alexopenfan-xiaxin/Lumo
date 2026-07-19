@@ -40,6 +40,7 @@ void main() {
         4,
       ]);
       expect(progress.last, (8, 8));
+      expect(apk.path, isNot(endsWith('lumo-update.apk')));
     },
   );
 }

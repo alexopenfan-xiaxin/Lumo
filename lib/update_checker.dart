@@ -70,8 +70,10 @@ class UpdateChecker {
   }) async {
     final directory = destination ?? Directory(await updateDirectory());
     await directory.create(recursive: true);
+    // A previous package-installer session may still read its APK. Avoid
+    // replacing that file after a successful download.
     final apk = File(
-      '${directory.path}${Platform.pathSeparator}lumo-update.apk',
+      '${directory.path}${Platform.pathSeparator}lumo-update-${DateTime.now().microsecondsSinceEpoch}.apk',
     );
     final partial = File('${apk.path}.part');
     if (await partial.exists()) await partial.delete();
@@ -79,7 +81,7 @@ class UpdateChecker {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
       ..userAgent = 'Lumo/$appVersion';
-    IOSink? sink;
+    RandomAccessFile? output;
     try {
       final request = await client.getUrl(url);
       request.headers.set(
@@ -96,18 +98,19 @@ class UpdateChecker {
       final total = response.contentLength;
       if (total > _maxApkBytes) throw const HttpException('更新包超过 250 MB 限制');
 
-      sink = partial.openWrite();
+      output = await partial.open(mode: FileMode.write);
       var received = 0;
       await for (final chunk in response.timeout(const Duration(seconds: 30))) {
-        received += chunk.length;
-        if (received > _maxApkBytes) {
+        final nextReceived = received + chunk.length;
+        if (nextReceived > _maxApkBytes) {
           throw const HttpException('更新包超过 250 MB 限制');
         }
-        sink.add(chunk);
+        await output.writeFrom(chunk);
+        received = nextReceived;
         onProgress(received, total);
       }
-      await sink.close();
-      sink = null;
+      await output.close();
+      output = null;
       if (received == 0 || (total > 0 && received != total)) {
         throw const HttpException('更新包下载不完整');
       }
@@ -121,10 +124,9 @@ class UpdateChecker {
           signature[3] != 0x04) {
         throw const FormatException('下载内容不是有效的 APK');
       }
-      if (await apk.exists()) await apk.delete();
       return partial.rename(apk.path);
     } finally {
-      await sink?.close();
+      await output?.close();
       if (await partial.exists()) await partial.delete();
       client.close(force: true);
     }

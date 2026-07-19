@@ -35,6 +35,7 @@ assert.deepEqual(completionOptions('sensenova-6.7-flash-lite', [], 480), {
   temperature: 0.82, top_p: 0.9,
 });
 assert.equal(completionOptions('deepseek-v4-flash', [], 480, [webSearchTool]).tool_choice, 'auto');
+assert.equal(completionOptions('deepseek-v4-flash', [], 480, [], true).stream, true);
 assert.deepEqual(searchResults([{title: 'Result', url: 'https://example.com', highlights: ['A', 1]}]), [{title: 'Result', url: 'https://example.com', highlights: 'A'}]);
 assert.equal(contract.openapi, '3.1.0');
 assert.ok(contract.paths['/admin/agents/{id}'].put);
