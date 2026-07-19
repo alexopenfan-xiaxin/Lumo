@@ -32,12 +32,15 @@ class AiChatClient {
             jsonDecode(await utf8.decoder.bind(response).join())
                 as Map<String, dynamic>;
         if (response.statusCode == HttpStatus.requestEntityTooLarge &&
-            body['contextLimit'] == true)
+            body['contextLimit'] == true) {
           throw const AiContextLimitException();
-        if (response.statusCode == HttpStatus.tooManyRequests)
+        }
+        if (response.statusCode == HttpStatus.tooManyRequests) {
           throw AiQuotaException(body['error'] as String? ?? '已达发送限额。');
-        if (response.statusCode == HttpStatus.unauthorized)
+        }
+        if (response.statusCode == HttpStatus.unauthorized) {
           throw const AiChatException('登录已过期，请在设置中重新登录。');
+        }
         throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
       }
       var event = '';
@@ -59,8 +62,9 @@ class AiChatClient {
             process = data['process'] as String? ?? process;
             sources = _sources(data['sources']);
           } else if (event == 'error') {
-            if (data['contextLimit'] == true)
+            if (data['contextLimit'] == true) {
               throw const AiContextLimitException();
+            }
             throw AiChatException(
               data['message'] as String? ?? 'AI 暂时没能接上，稍后再试试吧。',
             );
@@ -104,11 +108,12 @@ class AiChatClient {
     final request = await client.postUrl(Uri.parse(_endpoint));
     request.headers.contentType = ContentType.json;
     request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
-    if (identity.token != null)
+    if (identity.token != null) {
       request.headers.set(
         HttpHeaders.authorizationHeader,
         'Bearer ${identity.token}',
       );
+    }
     request.write(
       jsonEncode({'agentId': agentId, 'guestId': identity.guestId, ...body}),
     );
