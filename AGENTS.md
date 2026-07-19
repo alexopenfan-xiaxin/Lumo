@@ -84,6 +84,7 @@
 - Treat any token exposed in chat, source, logs, or a release as compromised: rotate it in the provider console and update only the Pages Secret.
 - `lib/data.dart` is the bundled fallback catalog; a successful `/agents` response replaces it. D1/admin controls enabled state, order, metadata, and server-only prompts; `/agents` remains prompt-free.
 - Return only enabled agents from `/agents`. D1 `agent_images` stores versioned JPEG/PNG/WebP avatars by agent ID, HTTPS-served, at most 1 MB each. Do not require R2.
+- Keep `/openapi.json` synchronized with the authenticated agent-management endpoints and field validation so external agents can discover and use the contract without reading UI code.
 
 ### New agent release checklist
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
+const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
 const {quotaPolicy, validAgent, validImageUpload, validInviteCount, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
@@ -25,3 +26,6 @@ assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://example.com/
 assert.equal(validImageUpload({type: 'image/webp', size: 1_000_000}), true);
 assert.equal(validImageUpload({type: 'image/gif', size: 100}), false);
 assert.equal(validImageUpload({type: 'image/png', size: 1_000_001}), false);
+assert.equal(contract.openapi, '3.1.0');
+assert.ok(contract.paths['/admin/agents/{id}'].put);
+assert.equal(contract.components.schemas.AgentInput.properties.color.pattern, '^#[0-9A-Fa-f]{6}$');
