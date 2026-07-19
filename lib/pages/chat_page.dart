@@ -53,6 +53,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    unawaited(_speechInput.stop());
+    unawaited(_speechInput.stopSpeaking());
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -164,6 +166,7 @@ class _ChatPageState extends State<ChatPage> {
         setState(
           () => _messages.add(_ChatMessage.fromStored(assistantMessage)),
         );
+        if (_isVoiceMode) unawaited(_speak(reply.text));
       }
       unawaited(_proposeMemories(conversation.id));
     } on AiQuotaException catch (error) {
@@ -576,6 +579,20 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _endSpeech() => unawaited(_speechInput.stop());
+
+  Future<void> _speak(String text) async {
+    try {
+      await _speechInput.speak(text);
+    } on PlatformException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          SnackBar(content: Text(error.message ?? '无法播放语音回复。')),
+        );
+      }
+    }
+  }
 
   String _timeLabel(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);

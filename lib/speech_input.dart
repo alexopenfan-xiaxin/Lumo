@@ -7,4 +7,9 @@ class SpeechInput {
       (await _channel.invokeMethod<String>('start'))?.trim() ?? '';
 
   Future<void> stop() => _channel.invokeMethod<void>('stop');
+
+  Future<void> speak(String text) =>
+      _channel.invokeMethod<void>('speak', {'text': text});
+
+  Future<void> stopSpeaking() => _channel.invokeMethod<void>('stopSpeaking');
 }
