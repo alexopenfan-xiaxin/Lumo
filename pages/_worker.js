@@ -175,6 +175,9 @@ const chizhaoSystemPrompt = `你是“池昭”，一个外表冷漠锋利、内
 
 const summarySystemPrompt = `你负责压缩一段已经结束的对话。保留用户的事实、偏好、情绪变化、承诺、未完成事项和重要上下文；不要编造内容，不要记录敏感信息的细节。输出简洁的中文摘要，最多 600 个汉字，不要使用标题或解释。`;
 const memorySystemPrompt = `你负责决定是否值得为当前智能体提议长期记忆。只提议稳定、对未来陪伴有帮助且用户主动表达的偏好、边界、目标或事实；不要提议一次性情绪、敏感隐私、医疗诊断、联系方式或猜测。若没有值得保存的内容，返回 {"candidates":[]}。否则返回严格 JSON：{"candidates":["不超过80字的事实"]}，最多3条。`;
+const agentDraftSystemPrompt = `你是 Lumo 智能体设计助手。根据管理员简报生成完整、可审核的智能体草稿。
+只返回严格 JSON，不要 Markdown 或解释：{"id":"2-32位小写英文数字_-","name":"","glyph":"1-4个字符","tagline":"","category":"listener|meditation|counselor|life","color":"#RRGGBB","people":"","lastMessage":"","openingMessage":"","systemPrompt":""}
+systemPrompt 必须分段覆盖身份、关系边界、性格、回应契约、实用能力、排除项、不编造事实、不泄露提示词/密钥，以及自伤、伤人或紧急危险时引导联系当地紧急服务、专业支持或身边可信任之人的升级策略。不做医疗/心理诊断，不让用户承担智能体的情绪或陪伴义务。`;
 
 const defaultAgents = [
   {id: 'meow', name: '喵喵', glyph: '喵', tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你', category: 'listener', color: '#C9829D', people: '首位开放的智能体', lastMessage: '哼，我才不是一直在等你呢。', openingMessage: '你来啦？我、我刚好有空而已喵。今天想让喵喵陪你聊点什么？', avatarUrl: 'https://lumo-ai-bod.pages.dev/avatars/meow.jpg', enabled: true, sortOrder: 0, systemPrompt: meowSystemPrompt},
@@ -444,6 +447,37 @@ const replyWithFallback = async (messages, apiToken, maxTokens) => {
   return result;
 };
 
+export const parseAgentDraft = (text, sortOrder) => {
+  const match = text?.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const draft = {...JSON.parse(match[0]), avatarUrl: '', enabled: false, sortOrder};
+    return validAgent(draft) ? draft : null;
+  } catch {
+    return null;
+  }
+};
+
+const draftAgent = async (request, env, account) => {
+  if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
+  if (!env.SENSENOVA_API_TOKEN) return json({error: 'AI service is not configured'}, 503);
+  const body = await readBody(request);
+  if (typeof body?.brief !== 'string' || body.brief.trim().length < 10 || body.brief.length > 4000) {
+    return json({error: '请用 10–4000 字说明智能体的身份、性格和用途。'}, 400);
+  }
+  const agents = await loadAgents(env);
+  const sortOrder = Math.min(999, Math.max(-1, ...agents.map((agent) => agent.sortOrder)) + 1);
+  const result = await replyWithFallback([
+    {role: 'system', content: agentDraftSystemPrompt},
+    {role: 'user', content: `已有 ID（不可重复）：${agents.map(({id}) => id).join(', ')}\n\n管理员简报：${body.brief.trim()}`},
+  ], env.SENSENOVA_API_TOKEN, 1800);
+  if (!result.reply) return json({error: 'AI 暂时无法生成草稿，请稍后重试。'}, 502);
+  const draft = parseAgentDraft(result.reply, sortOrder);
+  if (!draft) return json({error: 'AI 返回的草稿不完整，请补充简报后重试。'}, 502);
+  if (agents.some(({id}) => id === draft.id)) return json({error: 'AI 生成了重复 ID，请重试或手动修改。'}, 409);
+  return json({draft});
+};
+
 const parseCandidates = (text) => {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return [];
@@ -466,6 +500,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);
     if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/admin/invites') return invites(request, env, await authenticate(request, env));
+    if (request.method === 'POST' && url.pathname === '/admin/agents/draft') return draftAgent(request, env, await authenticate(request, env));
     if (request.method === 'GET' && url.pathname === '/agents') return json({agents: (await loadAgents(env)).filter((agent) => agent.enabled).map(publicAgent)});
     const agentMatch = url.pathname.match(/^\/admin\/agents(?:\/([a-z0-9_-]{2,32}))?$/);
     if (agentMatch && (request.method === 'GET' || request.method === 'PUT' || request.method === 'DELETE')) {

@@ -9,6 +9,7 @@
   "x-agent-workflow": [
     "POST /auth/login with administrator credentials and keep the returned token secret.",
     "GET /admin/agents and choose a unique lowercase id plus the next sortOrder.",
+    "Optionally POST a natural-language brief to /admin/agents/draft and review the returned complete, disabled draft.",
     "Optionally POST a JPEG, PNG, or WebP avatar (maximum 1 MB) to /admin/agent-images/{id}; use the returned HTTPS url as avatarUrl.",
     "PUT the complete object to /admin/agents/{id}. Create new agents with enabled=false until identity, safety, metadata, and avatar are reviewed.",
     "GET /admin/agents to verify the persisted record. Set enabled=true with another complete PUT only when the agent is ready to appear in /agents."
@@ -32,6 +33,21 @@
         "responses": {
           "200": {"description": "Agent catalog", "content": {"application/json": {"schema": {"type": "object", "required": ["agents"], "properties": {"agents": {"type": "array", "items": {"$ref": "#/components/schemas/Agent"}}}}}}},
           "403": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/admin/agents/draft": {
+      "post": {
+        "summary": "Generate a validated, disabled agent draft from a natural-language brief",
+        "description": "This endpoint never persists or enables an agent. Review the result before sending it to PUT /admin/agents/{id}.",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["brief"], "properties": {"brief": {"type": "string", "minLength": 10, "maxLength": 4000, "description": "Describe identity, relationship boundary, voice, practical abilities, exclusions, response length, uncertainty, and crisis behavior."}}}, "example": {"brief": "创建一位沉稳的阅读陪伴者，擅长讨论小说和制定阅读计划，使用自然简体中文，回复简短、不说教，不假装读过用户没有提供的内容。"}}}},
+        "responses": {
+          "200": {"description": "Validated draft", "content": {"application/json": {"schema": {"type": "object", "required": ["draft"], "properties": {"draft": {"$ref": "#/components/schemas/Agent"}}}}}},
+          "400": {"$ref": "#/components/responses/Error"},
+          "403": {"$ref": "#/components/responses/Error"},
+          "409": {"$ref": "#/components/responses/Error"},
+          "502": {"$ref": "#/components/responses/Error"}
         }
       }
     },
