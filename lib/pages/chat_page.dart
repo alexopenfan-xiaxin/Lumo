@@ -173,12 +173,7 @@ class _ChatPageState extends State<ChatPage> {
         content: reply.text,
         process: reply.process,
         sources: reply.sources
-            .map(
-              (source) => MessageSource(
-                title: source.title,
-                url: source.url,
-              ),
-            )
+            .map((source) => MessageSource(title: source.title, url: source.url))
             .toList(),
       );
       if (mounted) {
@@ -948,16 +943,11 @@ class _MessageBubble extends StatelessWidget {
           Text(
             message.text,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: message.fromUser
-                  ? Theme.of(context).colorScheme.onPrimary
-                  : null,
+              color: message.fromUser ? Theme.of(context).colorScheme.onPrimary : null,
             ),
           ),
           if (!message.fromUser && message.process.isNotEmpty)
-            _ProcessDisclosure(
-              process: message.process,
-              sources: message.sources,
-            ),
+            _ProcessDisclosure(process: message.process, sources: message.sources),
         ],
       ),
     ),
@@ -1022,11 +1012,7 @@ class _ProcessDisclosure extends StatelessWidget {
           for (final source in sources)
             ListTile(
               dense: true,
-              title: Text(
-                source.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              title: Text(source.title, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: SelectableText(source.url),
             ),
       ],
