@@ -878,7 +878,6 @@ class _ChatMessage {
     required this.fromUser,
     this.process = '',
     this.sources = const [],
-    this.isStreaming = false,
   });
 
   final String id;
@@ -886,7 +885,6 @@ class _ChatMessage {
   final bool fromUser;
   final String process;
   final List<MessageSource> sources;
-  final bool isStreaming;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
