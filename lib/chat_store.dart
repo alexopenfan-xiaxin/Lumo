@@ -67,8 +67,12 @@ class ChatStore {
             );
           }
           if (oldVersion < 3) {
-            await database.execute("ALTER TABLE messages ADD COLUMN process TEXT NOT NULL DEFAULT ''");
-            await database.execute("ALTER TABLE messages ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'");
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN process TEXT NOT NULL DEFAULT ''",
+            );
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'",
+            );
           }
         },
       ),
@@ -431,7 +435,9 @@ class StoredMessage {
     'role': role.name,
     'content': content,
     'process': process,
-    'sources': jsonEncode(sources.map((source) => source.toJson()).toList()),
+    'sources': jsonEncode(
+      sources.map((source) => source.toJson()).toList(),
+    ),
     'created_at': createdAt,
   };
 }
@@ -453,10 +459,11 @@ class MessageSource {
   final String title;
   final String url;
 
-  factory MessageSource.fromJson(Map<dynamic, dynamic> json) => MessageSource(
-    title: json['title'] as String? ?? '来源',
-    url: json['url'] as String? ?? '',
-  );
+  factory MessageSource.fromJson(Map<dynamic, dynamic> json) =>
+      MessageSource(
+        title: json['title'] as String? ?? '来源',
+        url: json['url'] as String? ?? '',
+      );
 
   Map<String, String> toJson() => {'title': title, 'url': url};
 }

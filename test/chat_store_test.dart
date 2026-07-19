@@ -23,7 +23,9 @@ void main() {
         role: MessageRole.assistant,
         content: '我记住啦，散步听起来很舒服。',
         process: '已结合对话上下文生成回复',
-        sources: const [MessageSource(title: '示例来源', url: 'https://example.com')],
+        sources: const [
+          MessageSource(title: '示例来源', url: 'https://example.com'),
+        ],
       );
 
       await store.replaceSummaryAndDeleteMessages(

@@ -146,7 +146,11 @@ class AiChatException implements Exception {
 }
 
 class AiChatReply {
-  const AiChatReply({required this.text, required this.process, required this.sources});
+  const AiChatReply({
+    required this.text,
+    required this.process,
+    required this.sources,
+  });
 
   final String text;
   final String process;
