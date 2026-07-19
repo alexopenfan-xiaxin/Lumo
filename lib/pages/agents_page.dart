@@ -63,14 +63,11 @@ class _AgentsPageState extends State<AgentsPage> {
     }
   }
 
-  Future<void> _openChat(Companion companion, {bool createNew = false}) async {
+  Future<void> _openChat(Companion companion) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => ChatPage(
-          companion: companion,
-          heroTag: 'agents-${companion.id}',
-          createNew: createNew,
-        ),
+        builder: (_) =>
+            ChatPage(companion: companion, heroTag: 'agents-${companion.id}'),
       ),
     );
     await _loadPreviews();
@@ -117,8 +114,6 @@ class _AgentsPageState extends State<AgentsPage> {
                       companion: widget.companions[index],
                       preview: _previews[widget.companions[index].id],
                       onTap: () => _openChat(widget.companions[index]),
-                      onNewChat: () =>
-                          _openChat(widget.companions[index], createNew: true),
                     ),
                     if (index != widget.companions.length - 1)
                       const Divider(height: 1, indent: 98, endIndent: 20),
@@ -139,13 +134,11 @@ class _AgentRow extends StatelessWidget {
     required this.companion,
     required this.preview,
     required this.onTap,
-    required this.onNewChat,
   });
 
   final Companion companion;
   final _AgentPreview? preview;
   final VoidCallback onTap;
-  final VoidCallback onNewChat;
 
   @override
   Widget build(BuildContext context) {
@@ -175,14 +168,6 @@ class _AgentRow extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      Text(
-                        available ? '在线' : '未开放',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: available
-                              ? Theme.of(context).colorScheme.secondary
-                              : null,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -201,11 +186,6 @@ class _AgentRow extends StatelessWidget {
                   ],
                 ],
               ),
-            ),
-            IconButton(
-              tooltip: '与${companion.name}新建对话',
-              onPressed: available ? onNewChat : null,
-              icon: const Icon(Icons.add_comment_outlined, size: 22),
             ),
           ],
         ),

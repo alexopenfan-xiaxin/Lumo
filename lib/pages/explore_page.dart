@@ -58,7 +58,6 @@ class ExplorePage extends StatelessWidget {
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                     ),
-                    _CoverLabel(label: companion.isAvailable ? '在线' : '未开放'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -184,13 +183,6 @@ class _ExploreCard extends StatelessWidget {
                     top: 10,
                     child: _CoverLabel(
                       label: categoryLabel(companion.category),
-                    ),
-                  ),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: _CoverLabel(
-                      label: companion.isAvailable ? '在线' : '未开放',
                     ),
                   ),
                 ],

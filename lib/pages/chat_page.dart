@@ -12,16 +12,10 @@ import '../speech_input.dart';
 import '../widgets.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({
-    required this.companion,
-    required this.heroTag,
-    this.createNew = false,
-    super.key,
-  });
+  const ChatPage({required this.companion, required this.heroTag, super.key});
 
   final Companion companion;
   final String heroTag;
-  final bool createNew;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -44,8 +38,6 @@ class _ChatPageState extends State<ChatPage> {
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
   String _streamedText = '';
-  String _streamedProcess = '';
-  List<MessageSource> _streamedSources = const [];
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -55,7 +47,7 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     if (widget.companion.isAvailable) {
       _store = ChatStore();
-      unawaited(_loadConversation(createNew: widget.createNew));
+      unawaited(_loadConversation());
     }
   }
 
@@ -66,18 +58,13 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  Future<void> _loadConversation({
-    Conversation? conversation,
-    bool createNew = false,
-  }) async {
+  Future<void> _loadConversation({Conversation? conversation}) async {
     if (!widget.companion.isAvailable) return;
     setState(() => _isLoadingConversation = true);
     try {
       final selected =
           conversation ??
-          (createNew
-              ? await _store.createConversation(widget.companion.id)
-              : await _store.latestConversation(widget.companion.id)) ??
+          await _store.latestConversation(widget.companion.id) ??
           await _store.createConversation(widget.companion.id);
       var storedMessages = await _store.messages(selected.id);
       if (storedMessages.isEmpty) {
@@ -144,8 +131,6 @@ class _ChatPageState extends State<ChatPage> {
       _inputController.clear();
       _isReplying = true;
       _streamedText = '';
-      _streamedProcess = '正在整理对话上下文。';
-      _streamedSources = const [];
     });
     _scrollToEnd();
 
@@ -174,12 +159,6 @@ class _ChatPageState extends State<ChatPage> {
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: reply.text,
-        process: reply.process,
-        sources: reply.sources
-            .map(
-              (source) => MessageSource(title: source.title, url: source.url),
-            )
-            .toList(),
       );
       if (mounted) {
         setState(
@@ -222,10 +201,6 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) return;
     setState(() {
       _streamedText = progress.text;
-      _streamedProcess = progress.process;
-      _streamedSources = progress.sources
-          .map((source) => MessageSource(title: source.title, url: source.url))
-          .toList();
     });
     _scrollToEnd();
   }
@@ -685,16 +660,6 @@ class _ChatPageState extends State<ChatPage> {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Text(
-                    widget.companion.isAvailable ? '此刻在线 · 安静陪着你' : '暂未开放',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: widget.companion.isAvailable
-                          ? Theme.of(context).colorScheme.secondary
-                          : null,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -752,9 +717,6 @@ class _ChatPageState extends State<ChatPage> {
                               id: 'streaming',
                               text: _streamedText,
                               fromUser: false,
-                              process: _streamedProcess,
-                              sources: _streamedSources,
-                              isStreaming: true,
                             ),
                           ),
                       ],
@@ -968,11 +930,6 @@ class _MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!message.fromUser && message.process.isNotEmpty)
-            _ProcessDisclosure(
-              process: message.process,
-              initiallyExpanded: message.isStreaming,
-            ),
           if (message.text.isNotEmpty)
             Text(
               message.text,
@@ -982,61 +939,8 @@ class _MessageBubble extends StatelessWidget {
                     : null,
               ),
             ),
-          if (!message.fromUser && message.sources.isNotEmpty)
-            _SourceList(sources: message.sources),
         ],
       ),
-    ),
-  );
-}
-
-class _ProcessDisclosure extends StatelessWidget {
-  const _ProcessDisclosure({
-    required this.process,
-    required this.initiallyExpanded,
-  });
-
-  final String process;
-  final bool initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 8),
-    child: ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      leading: const Icon(Icons.psychology_outlined),
-      title: const Text('思考过程'),
-      subtitle: Text(process),
-      initiallyExpanded: initiallyExpanded,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: SelectableText(process),
-        ),
-      ],
-    ),
-  );
-}
-
-class _SourceList extends StatelessWidget {
-  const _SourceList({required this.sources});
-
-  final List<MessageSource> sources;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('来源', style: Theme.of(context).textTheme.labelLarge),
-        for (final source in sources)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: SelectableText('${source.title}\n${source.url}'),
-          ),
-      ],
     ),
   );
 }
