@@ -406,8 +406,8 @@ class StoredMessage {
     required this.conversationId,
     required this.role,
     required this.content,
-    required this.process,
-    required this.sources,
+    this.process = '',
+    this.sources = const [],
     required this.createdAt,
   });
 
