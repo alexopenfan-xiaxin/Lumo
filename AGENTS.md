@@ -10,6 +10,7 @@
 ## 2. Local operating model
 
 - Never run `flutter`, `dart`, or any wrapper that invokes them on this machine. This includes dependency resolution, formatting, analysis, tests, and builds.
+- For Dart formatting on this machine, use the repository's WASM formatter (`node tools/format_dart.mjs`) before remote quality gates. When updating formatted Dart through the GitHub Contents API, preserve exactly one final LF.
 - Static inspection and non-Flutter tooling are allowed. Use `rg`, `git diff --check`, platform source/docs, Node checks, and focused read-only diagnostics locally.
 - Never guess Flutter or platform APIs when local compilation is unavailable. Verify names and parameter shapes against the Flutter stable SDK used by Actions, then let remote analysis be the first compiler gate.
 - Keep Dart and Android `MethodChannel` method names and named-map arguments identical. Every channel change needs one focused test asserting method names and arguments; Android reads numeric Dart values as `Number` before conversion.
