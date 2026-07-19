@@ -67,8 +67,12 @@ class ChatStore {
             );
           }
           if (oldVersion < 3) {
-            await database.execute("ALTER TABLE messages ADD COLUMN process TEXT NOT NULL DEFAULT ''");
-            await database.execute("ALTER TABLE messages ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'");
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN process TEXT NOT NULL DEFAULT ''",
+            );
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'",
+            );
           }
         },
       ),
