@@ -373,10 +373,12 @@ const uploadAgentImage = async (request, env, account, id) => {
   const file = form?.get('image');
   if (!validImageUpload(file)) return json({error: '请上传 1 MB 以内的 JPEG、PNG 或 WebP 图片。'}, 400);
   const updatedAt = Date.now();
+  const url = `${new URL(request.url).origin}/agent-images/${id}?v=${updatedAt}`;
   await env.DB.prepare(
     'INSERT INTO agent_images (agent_id, content_type, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(agent_id) DO UPDATE SET content_type=excluded.content_type, data=excluded.data, updated_at=excluded.updated_at',
   ).bind(id, file.type, await file.arrayBuffer(), updatedAt).run();
-  return json({url: `${new URL(request.url).origin}/agent-images/${id}?v=${updatedAt}`});
+  await env.DB.prepare('UPDATE agents SET avatar_url = ?, updated_at = ? WHERE id = ?').bind(url, updatedAt, id).run();
+  return json({url});
 };
 
 const serveAgentImage = async (env, id) => {
@@ -428,7 +430,7 @@ export const completionOptions = (model, messages, maxTokens, tools = [], stream
   messages,
   max_tokens: maxTokens,
   stream,
-  ...(model === primaryModel ? {thinking: {type: 'enabled'}, reasoning_effort: 'medium'} : {temperature: 0.82, top_p: 0.9}),
+  ...(model === primaryModel ? {thinking: {type: 'enabled'}, reasoning_effort: 'low'} : {temperature: 0.82, top_p: 0.9}),
   ...(tools.length ? {tools, tool_choice: 'auto'} : {}),
 });
 

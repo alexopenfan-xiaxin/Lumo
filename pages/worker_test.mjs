@@ -28,7 +28,7 @@ assert.equal(validImageUpload({type: 'image/gif', size: 100}), false);
 assert.equal(validImageUpload({type: 'image/png', size: 1_000_001}), false);
 assert.deepEqual(completionOptions('deepseek-v4-flash', [], 480), {
   model: 'deepseek-v4-flash', messages: [], max_tokens: 480, stream: false,
-  thinking: {type: 'enabled'}, reasoning_effort: 'medium',
+  thinking: {type: 'enabled'}, reasoning_effort: 'low',
 });
 assert.deepEqual(completionOptions('sensenova-6.7-flash-lite', [], 480), {
   model: 'sensenova-6.7-flash-lite', messages: [], max_tokens: 480, stream: false,

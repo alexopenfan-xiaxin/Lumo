@@ -712,13 +712,15 @@ class _ChatPageState extends State<ChatPage> {
                                 duration: messageDuration,
                               ),
                         if (_isReplying)
-                          _MessageBubble(
-                            message: _ChatMessage(
-                              id: 'streaming',
-                              text: _streamedText,
-                              fromUser: false,
-                            ),
-                          ),
+                          _streamedText.isEmpty
+                              ? _TypingBubble(color: widget.companion.color)
+                              : _MessageBubble(
+                                  message: _ChatMessage(
+                                    id: 'streaming',
+                                    text: _streamedText,
+                                    fromUser: false,
+                                  ),
+                                ),
                       ],
                     ),
             ),
@@ -938,6 +940,44 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    ),
+  );
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Semantics(
+      label: '智能体正在回复',
+      liveRegion: true,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 36,
+              child: LinearProgressIndicator(
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.12),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('正在回复…'),
+          ],
+        ),
       ),
     ),
   );

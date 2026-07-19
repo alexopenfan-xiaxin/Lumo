@@ -43,6 +43,28 @@ class AiChatClient {
         }
         throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
       }
+      if (response.headers.contentType?.mimeType != 'text/event-stream') {
+        final body =
+            jsonDecode(await utf8.decoder.bind(response).join())
+                as Map<String, dynamic>;
+        final reply = body['reply'];
+        if (reply is! String || reply.trim().isEmpty) {
+          throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
+        }
+        final result = AiChatReply(
+          text: reply.trim(),
+          process: body['process'] as String? ?? '',
+          sources: _sources(body['sources']),
+        );
+        onProgress?.call(
+          AiChatProgress(
+            text: result.text,
+            process: result.process,
+            sources: result.sources,
+          ),
+        );
+        return result;
+      }
       var event = '';
       var text = '';
       var process = '正在整理对话上下文。';
