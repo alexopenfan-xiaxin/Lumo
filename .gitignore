@@ -19,6 +19,7 @@ android/key.properties
 # Editors / OS
 .idea/
 .vscode/
+node_modules/
 .DS_Store
 Thumbs.db
 

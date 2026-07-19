@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "format:dart": "node tools/format_dart.mjs"
+  },
+  "devDependencies": {
+    "@wasm-fmt/dart_fmt": "0.4.0"
+  }
+}
