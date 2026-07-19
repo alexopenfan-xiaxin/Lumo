@@ -22,6 +22,8 @@ void main() {
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: '我记住啦，散步听起来很舒服。',
+        process: '已结合对话上下文生成回复',
+        sources: const [MessageSource(title: '示例来源', url: 'https://example.com')],
       );
 
       await store.replaceSummaryAndDeleteMessages(
@@ -34,6 +36,8 @@ void main() {
       final saved = await store.conversation(conversation.id);
       expect(messages, hasLength(1));
       expect(saved?.summary, '用户喜欢在安静的时候散步。');
+      expect(messages.single.process, '已结合对话上下文生成回复');
+      expect(messages.single.sources.single.url, 'https://example.com');
     },
   );
 

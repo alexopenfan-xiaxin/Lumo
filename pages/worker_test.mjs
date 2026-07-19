@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {parseAgentDraft, quotaPolicy, validAgent, validImageUpload, validInviteCount, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {completionOptions, parseAgentDraft, quotaPolicy, searchResults, validAgent, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
 assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
@@ -26,6 +26,16 @@ assert.equal(publicAgent({...agent, id: 'meow', avatarUrl: 'https://example.com/
 assert.equal(validImageUpload({type: 'image/webp', size: 1_000_000}), true);
 assert.equal(validImageUpload({type: 'image/gif', size: 100}), false);
 assert.equal(validImageUpload({type: 'image/png', size: 1_000_001}), false);
+assert.deepEqual(completionOptions('deepseek-v4-flash', [], 480), {
+  model: 'deepseek-v4-flash', messages: [], max_tokens: 480, stream: false,
+  thinking: {type: 'enabled'}, reasoning_effort: 'medium',
+});
+assert.deepEqual(completionOptions('sensenova-6.7-flash-lite', [], 480), {
+  model: 'sensenova-6.7-flash-lite', messages: [], max_tokens: 480, stream: false,
+  temperature: 0.82, top_p: 0.9,
+});
+assert.equal(completionOptions('deepseek-v4-flash', [], 480, [webSearchTool]).tool_choice, 'auto');
+assert.deepEqual(searchResults([{title: 'Result', url: 'https://example.com', highlights: ['A', 1]}]), [{title: 'Result', url: 'https://example.com', highlights: 'A'}]);
 assert.equal(contract.openapi, '3.1.0');
 assert.ok(contract.paths['/admin/agents/{id}'].put);
 assert.ok(contract.paths['/admin/agents/draft'].post);

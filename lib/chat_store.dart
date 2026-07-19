@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -16,7 +18,7 @@ class ChatStore {
     _database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (database, version) async {
           await database.execute('''
             CREATE TABLE conversations (
@@ -34,6 +36,8 @@ class ChatStore {
               conversation_id TEXT NOT NULL,
               role TEXT NOT NULL,
               content TEXT NOT NULL,
+              process TEXT NOT NULL DEFAULT '',
+              sources TEXT NOT NULL DEFAULT '[]',
               created_at INTEGER NOT NULL
             )
           ''');
@@ -61,6 +65,10 @@ class ChatStore {
             await database.execute(
               'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
             );
+          }
+          if (oldVersion < 3) {
+            await database.execute("ALTER TABLE messages ADD COLUMN process TEXT NOT NULL DEFAULT ''");
+            await database.execute("ALTER TABLE messages ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'");
           }
         },
       ),
@@ -127,6 +135,8 @@ class ChatStore {
     required String conversationId,
     required MessageRole role,
     required String content,
+    String process = '',
+    List<MessageSource> sources = const [],
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = StoredMessage(
@@ -134,6 +144,8 @@ class ChatStore {
       conversationId: conversationId,
       role: role,
       content: content,
+      process: process,
+      sources: sources,
       createdAt: now,
     );
     final database = await _db;
@@ -390,6 +402,8 @@ class StoredMessage {
     required this.conversationId,
     required this.role,
     required this.content,
+    required this.process,
+    required this.sources,
     required this.createdAt,
   });
 
@@ -397,6 +411,8 @@ class StoredMessage {
   final String conversationId;
   final MessageRole role;
   final String content;
+  final String process;
+  final List<MessageSource> sources;
   final int createdAt;
 
   factory StoredMessage.fromRow(Map<String, Object?> row) => StoredMessage(
@@ -404,6 +420,8 @@ class StoredMessage {
     conversationId: row['conversation_id']! as String,
     role: row['role'] == 'user' ? MessageRole.user : MessageRole.assistant,
     content: row['content']! as String,
+    process: row['process'] as String? ?? '',
+    sources: _sources(row['sources'] as String? ?? '[]'),
     createdAt: row['created_at']! as int,
   );
 
@@ -412,8 +430,35 @@ class StoredMessage {
     'conversation_id': conversationId,
     'role': role.name,
     'content': content,
+    'process': process,
+    'sources': jsonEncode(sources.map((source) => source.toJson()).toList()),
     'created_at': createdAt,
   };
+}
+
+List<MessageSource> _sources(String encoded) {
+  try {
+    final decoded = jsonDecode(encoded);
+    return decoded is List
+        ? decoded.whereType<Map>().map(MessageSource.fromJson).toList()
+        : const [];
+  } on FormatException {
+    return const [];
+  }
+}
+
+class MessageSource {
+  const MessageSource({required this.title, required this.url});
+
+  final String title;
+  final String url;
+
+  factory MessageSource.fromJson(Map<dynamic, dynamic> json) => MessageSource(
+    title: json['title'] as String? ?? '来源',
+    url: json['url'] as String? ?? '',
+  );
+
+  Map<String, String> toJson() => {'title': title, 'url': url};
 }
 
 enum MemoryStatus { pending, approved, rejected }

@@ -81,7 +81,6 @@
 - Keep Meow soft, attentive, lightly tsundere, practical, and non-manipulative: no diagnosis or fabricated real-world presence; escalate self-harm or imminent danger gently toward local emergency/professional help.
 - Cloudflare Web Crypto supports at most 100,000 PBKDF2 iterations; keep hashing at that verified ceiling.
 - Deploy `pages/` from this authenticated machine with `wrangler pages deploy` on the Cloudflare free plan; do not add a deployment Action. Store `SENSENOVA_API_TOKEN` only as a Pages Secret, then set the public `LUMO_AI_ENDPOINT` repository variable and publish with `Run` when requested.
-- Treat any token exposed in chat, source, logs, or a release as compromised: rotate it in the provider console and update only the Pages Secret.
 - `lib/data.dart` is the bundled fallback catalog; a successful `/agents` response replaces it. D1/admin controls enabled state, order, metadata, and server-only prompts; `/agents` remains prompt-free.
 - Return only enabled agents from `/agents`. D1 `agent_images` stores versioned JPEG/PNG/WebP avatars by agent ID, HTTPS-served, at most 1 MB each. Do not require R2.
 - Keep `/openapi.json` synchronized with the authenticated agent-management endpoints and field validation so external agents can discover and use the contract without reading UI code.

@@ -11,7 +11,7 @@ class AiChatClient {
   final String _endpoint;
   final AuthClient _authClient;
 
-  Future<String> reply(
+  Future<AiChatReply> reply(
     List<AiChatMessage> messages, {
     required String agentId,
     required String summary,
@@ -33,7 +33,23 @@ class AiChatClient {
     if (reply is! String || reply.trim().isEmpty) {
       throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
     }
-    return reply.trim();
+    final sources = response['sources'];
+    return AiChatReply(
+      text: reply.trim(),
+      process: response['process'] as String? ?? '已结合对话上下文生成回复',
+      sources: sources is List
+          ? sources
+                .whereType<Map>()
+                .map(
+                  (source) => AiChatSource(
+                    title: source['title'] as String? ?? '来源',
+                    url: source['url'] as String? ?? '',
+                  ),
+                )
+                .where((source) => source.url.isNotEmpty)
+                .toList()
+          : const [],
+    );
   }
 
   Future<String> summarize(
@@ -127,6 +143,21 @@ class AiChatException implements Exception {
   const AiChatException(this.message);
 
   final String message;
+}
+
+class AiChatReply {
+  const AiChatReply({required this.text, required this.process, required this.sources});
+
+  final String text;
+  final String process;
+  final List<AiChatSource> sources;
+}
+
+class AiChatSource {
+  const AiChatSource({required this.title, required this.url});
+
+  final String title;
+  final String url;
 }
 
 class AiContextLimitException extends AiChatException {

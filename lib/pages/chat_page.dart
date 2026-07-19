@@ -146,7 +146,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       var context = await _prepareContext(conversation.id);
       final preferences = await _store.companionPreferences();
-      String reply;
+      AiChatReply reply;
       try {
         reply = await _aiChatClient.reply(
           context.messages.map(_asAiMessage).toList(),
@@ -170,7 +170,11 @@ class _ChatPageState extends State<ChatPage> {
       final assistantMessage = await _store.addMessage(
         conversationId: conversation.id,
         role: MessageRole.assistant,
-        content: reply,
+        content: reply.text,
+        process: reply.process,
+        sources: reply.sources
+            .map((source) => MessageSource(title: source.title, url: source.url))
+            .toList(),
       );
       if (mounted) {
         setState(
@@ -884,16 +888,22 @@ class _ChatMessage {
     required this.id,
     required this.text,
     required this.fromUser,
+    this.process = '',
+    this.sources = const [],
   });
 
   final String id;
   final String text;
   final bool fromUser;
+  final String process;
+  final List<MessageSource> sources;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
     text: message.content,
     fromUser: message.role == MessageRole.user,
+    process: message.process,
+    sources: message.sources,
   );
 }
 
@@ -927,13 +937,18 @@ class _MessageBubble extends StatelessWidget {
             ? null
             : Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Text(
-        message.text,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: message.fromUser
-              ? Theme.of(context).colorScheme.onPrimary
-              : null,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message.text,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: message.fromUser ? Theme.of(context).colorScheme.onPrimary : null,
+            ),
+          ),
+          if (!message.fromUser && message.process.isNotEmpty)
+            _ProcessDisclosure(process: message.process, sources: message.sources),
+        ],
       ),
     ),
   );
@@ -958,14 +973,49 @@ class _TypingBubble extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: SizedBox(
-          width: 36,
-          child: LinearProgressIndicator(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 36,
+              child: LinearProgressIndicator(
             color: color,
             backgroundColor: color.withValues(alpha: 0.12),
           ),
+            ),
+            const SizedBox(width: 12),
+            const Text('正在思考…'),
+          ],
         ),
       ),
+    ),
+  );
+}
+
+class _ProcessDisclosure extends StatelessWidget {
+  const _ProcessDisclosure({required this.process, required this.sources});
+
+  final String process;
+  final List<MessageSource> sources;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      leading: const Icon(Icons.psychology_outlined),
+      title: const Text('处理过程'),
+      subtitle: Text(process),
+      children: [
+        if (sources.isNotEmpty)
+          for (final source in sources)
+            ListTile(
+              dense: true,
+              title: Text(source.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: SelectableText(source.url),
+            ),
+      ],
     ),
   );
 }
