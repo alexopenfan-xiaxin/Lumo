@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
     expect(find.text('游客用户'), findsOneWidget);
-    expect(find.text('陪伴偏好'), findsOneWidget);
+    expect(find.text('陪伴偏好'), findsNothing);
 
     await tester.tap(homeDock);
     await tester.pumpAndSettle();
