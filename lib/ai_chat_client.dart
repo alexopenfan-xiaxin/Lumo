@@ -266,14 +266,12 @@ class AiChatReply {
     required this.text,
     required this.process,
     required this.sources,
-    this.drawingText,
     this.images = const [],
   });
 
   final String text;
   final String process;
   final List<AiChatSource> sources;
-  final String? drawingText;
   final List<AiChatImage> images;
 }
 
@@ -282,11 +280,13 @@ class AiChatProgress {
     required this.text,
     required this.process,
     required this.sources,
+    this.drawingText,
   });
 
   final String text;
   final String process;
   final List<AiChatSource> sources;
+  final String? drawingText;
 }
 
 class AiChatSource {
