@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,6 +40,7 @@ class _ChatPageState extends State<ChatPage> {
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
   String _streamedText = '';
+  String _streamedProcess = '正在整理对话上下文。';
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -133,6 +136,7 @@ class _ChatPageState extends State<ChatPage> {
       _inputController.clear();
       _isReplying = true;
       _streamedText = '';
+      _streamedProcess = '正在整理对话上下文。';
     });
     _scrollToEnd();
 
@@ -161,6 +165,9 @@ class _ChatPageState extends State<ChatPage> {
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: reply.text,
+        imageData: reply.images.isEmpty
+            ? ''
+            : await _cacheImage(reply.images.first.url),
       );
       if (mounted) {
         setState(
@@ -204,8 +211,33 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) return;
     setState(() {
       _streamedText = progress.text;
+      _streamedProcess = progress.process;
     });
     _scrollToEnd();
+  }
+
+  Future<String> _cacheImage(String url) async {
+    final client = HttpClient();
+    try {
+      final response = await (await client.getUrl(Uri.parse(url))).close();
+      final contentType = response.headers.contentType?.mimeType ?? '';
+      if (response.statusCode != HttpStatus.ok ||
+          !contentType.startsWith('image/')) {
+        throw const AiChatException('图片生成成功，但保存到本地失败，请重新生成。');
+      }
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        bytes.add(chunk);
+        if (bytes.length > 12 * 1024 * 1024) {
+          throw const AiChatException('图片过大，无法保存到本地。');
+        }
+      }
+      return 'data:$contentType;base64,${base64Encode(bytes.takeBytes())}';
+    } on SocketException {
+      throw const AiChatException('图片生成成功，但保存到本地失败，请检查网络后重试。');
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<_PreparedContext> _prepareContext(
@@ -728,7 +760,10 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                         if (_isReplying)
                           _streamedText.isEmpty
-                              ? _TypingBubble(color: widget.companion.color)
+                              ? _TypingBubble(
+                                  color: widget.companion.color,
+                                  text: _streamedProcess,
+                                )
                               : _MessageBubble(
                                   message: _ChatMessage(
                                     id: 'streaming',
@@ -895,6 +930,7 @@ class _ChatMessage {
     required this.fromUser,
     this.process = '',
     this.sources = const [],
+    this.imageData = '',
   });
 
   final String id;
@@ -902,6 +938,7 @@ class _ChatMessage {
   final bool fromUser;
   final String process;
   final List<MessageSource> sources;
+  final String imageData;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
@@ -909,6 +946,7 @@ class _ChatMessage {
     fromUser: message.role == MessageRole.user,
     process: message.process,
     sources: message.sources,
+    imageData: message.imageData,
   );
 }
 
@@ -954,6 +992,17 @@ class _MessageBubble extends StatelessWidget {
                     : null,
               ),
             ),
+          if (message.imageData.isNotEmpty) ...[
+            if (message.text.isNotEmpty) const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                base64Decode(message.imageData.split(',').last),
+                fit: BoxFit.cover,
+                semanticLabel: '智能体生成的图片',
+              ),
+            ),
+          ],
         ],
       ),
     ),
@@ -961,9 +1010,10 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.color});
+  const _TypingBubble({required this.color, required this.text});
 
   final Color color;
+  final String text;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -990,7 +1040,7 @@ class _TypingBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('正在回复…'),
+            Flexible(child: Text(text)),
           ],
         ),
       ),

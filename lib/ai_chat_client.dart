@@ -55,6 +55,7 @@ class AiChatClient {
           text: reply.trim(),
           process: body['process'] as String? ?? '',
           sources: _sources(body['sources']),
+          images: _images(body['images']),
         );
         onProgress?.call(
           AiChatProgress(
@@ -69,6 +70,7 @@ class AiChatClient {
       var text = '';
       var process = '正在整理对话上下文。';
       var sources = const <AiChatSource>[];
+      var images = const <AiChatImage>[];
       await for (final line
           in response.transform(utf8.decoder).transform(const LineSplitter())) {
         if (line.startsWith('event:')) {
@@ -83,6 +85,7 @@ class AiChatClient {
           } else if (event == 'done') {
             process = data['process'] as String? ?? process;
             sources = _sources(data['sources']);
+            images = _images(data['images']);
           } else if (event == 'error') {
             if (data['contextLimit'] == true) {
               throw const AiContextLimitException();
@@ -97,7 +100,12 @@ class AiChatClient {
         }
       }
       if (text.trim().isEmpty) throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
-      return AiChatReply(text: text.trim(), process: process, sources: sources);
+      return AiChatReply(
+        text: text.trim(),
+        process: process,
+        sources: sources,
+        images: images,
+      );
     } on SocketException {
       throw const AiChatException('网络好像开小差了，检查连接后再试试吧。');
     } on FormatException {
@@ -117,6 +125,14 @@ class AiChatClient {
               ),
             )
             .where((source) => source.url.isNotEmpty)
+            .toList()
+      : const [];
+
+  List<AiChatImage> _images(Object? images) => images is List
+      ? images
+            .whereType<Map>()
+            .map((image) => AiChatImage(url: image['url'] as String? ?? ''))
+            .where((image) => image.url.startsWith('https://'))
             .toList()
       : const [];
 
@@ -240,11 +256,13 @@ class AiChatReply {
     required this.text,
     required this.process,
     required this.sources,
+    this.images = const [],
   });
 
   final String text;
   final String process;
   final List<AiChatSource> sources;
+  final List<AiChatImage> images;
 }
 
 class AiChatProgress {
@@ -263,6 +281,12 @@ class AiChatSource {
   const AiChatSource({required this.title, required this.url});
 
   final String title;
+  final String url;
+}
+
+class AiChatImage {
+  const AiChatImage({required this.url});
+
   final String url;
 }
 

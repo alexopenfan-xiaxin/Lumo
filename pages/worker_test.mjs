@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {completionOptions, parseAgentDraft, quotaPolicy, searchResults, validAgent, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {completionOptions, imageGenerationTool, parseAgentDraft, quotaPolicy, searchResults, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
 assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
@@ -35,6 +35,9 @@ assert.deepEqual(completionOptions('sensenova-6.7-flash-lite', [], 480), {
   temperature: 0.82, top_p: 0.9,
 });
 assert.equal(completionOptions('deepseek-v4-flash', [], 480, [webSearchTool]).tool_choice, 'auto');
+assert.equal(imageGenerationTool.function.name, 'generate_image');
+assert.equal(validImageSize('2048x2048'), true);
+assert.equal(validImageSize('1024x1024'), false);
 assert.equal(completionOptions('deepseek-v4-flash', [], 480, [], true).stream, true);
 assert.deepEqual(searchResults([{title: 'Result', url: 'https://example.com', highlights: ['A', 1]}]), [{title: 'Result', url: 'https://example.com', highlights: 'A'}]);
 assert.equal(contract.openapi, '3.1.0');

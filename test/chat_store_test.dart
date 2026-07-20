@@ -23,6 +23,7 @@ void main() {
         role: MessageRole.assistant,
         content: '我记住啦，散步听起来很舒服。',
         process: '已结合对话上下文生成回复',
+        imageData: 'data:image/png;base64,AA==',
         sources: const [
           MessageSource(title: '示例来源', url: 'https://example.com'),
         ],
@@ -40,6 +41,7 @@ void main() {
       expect(saved?.summary, '用户喜欢在安静的时候散步。');
       expect(messages.single.process, '已结合对话上下文生成回复');
       expect(messages.single.sources.single.url, 'https://example.com');
+      expect(messages.single.imageData, 'data:image/png;base64,AA==');
     },
   );
 
