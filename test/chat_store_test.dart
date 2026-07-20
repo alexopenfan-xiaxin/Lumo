@@ -24,6 +24,7 @@ void main() {
         content: '我记住啦，散步听起来很舒服。',
         process: '已结合对话上下文生成回复',
         imageData: 'data:image/png;base64,AA==',
+        imageUrl: 'https://example.com/image.png',
         sources: const [
           MessageSource(title: '示例来源', url: 'https://example.com'),
         ],
@@ -42,6 +43,7 @@ void main() {
       expect(messages.single.process, '已结合对话上下文生成回复');
       expect(messages.single.sources.single.url, 'https://example.com');
       expect(messages.single.imageData, 'data:image/png;base64,AA==');
+      expect(messages.single.imageUrl, 'https://example.com/image.png');
     },
   );
 
