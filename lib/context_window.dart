@@ -22,11 +22,11 @@ int contextUsage({
   required List<MemoryEntry> memories,
 }) =>
     estimatedTokens(summary) +
-    memories.fold(
+    memories.fold<int>(
       0,
       (total, memory) => total + estimatedTokens(memory.content),
     ) +
-    messages.fold(
+    messages.fold<int>(
       0,
       (total, message) => total + estimatedTokens(message.content),
     );
