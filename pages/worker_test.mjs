@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {completionOptions, imageGenerationTool, parseAgentDraft, quotaPolicy, searchResults, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {completionOptions, explicitlyRequestsImage, imageGenerationTool, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
 assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
@@ -38,6 +38,10 @@ assert.equal(completionOptions('deepseek-v4-flash', [], 480, [webSearchTool]).to
 assert.equal(imageGenerationTool.function.name, 'generate_image');
 assert.equal(validImageSize('2048x2048'), true);
 assert.equal(validImageSize('1024x1024'), false);
+assert.equal(explicitlyRequestsImage([{role: 'user', content: '请画一张猫咪插画'}]), true);
+assert.equal(explicitlyRequestsImage([{role: 'user', content: '今天有点累'}]), false);
+assert.deepEqual(parseImagePlan('{"generate":false}'), {generate: false});
+assert.equal(parseImagePlan('{"generate":true,"prompt":"猫","size":"2048x2048","status":"正在画猫"}').generate, true);
 assert.equal(completionOptions('deepseek-v4-flash', [], 480, [], true).stream, true);
 assert.deepEqual(searchResults([{title: 'Result', url: 'https://example.com', highlights: ['A', 1]}]), [{title: 'Result', url: 'https://example.com', highlights: 'A'}]);
 assert.equal(contract.openapi, '3.1.0');
