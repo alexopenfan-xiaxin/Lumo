@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'auth_client.dart';
@@ -16,7 +17,7 @@ class AiChatClient {
     required String agentId,
     required String summary,
     required List<String> memories,
-    void Function(AiChatProgress progress)? onProgress,
+    FutureOr<void> Function(AiChatProgress progress)? onProgress,
   }) async {
     final client = HttpClient();
     try {
@@ -57,7 +58,7 @@ class AiChatClient {
           sources: _sources(body['sources']),
           images: _images(body['images']),
         );
-        onProgress?.call(
+        await onProgress?.call(
           AiChatProgress(
             text: result.text,
             process: result.process,
@@ -71,6 +72,7 @@ class AiChatClient {
       var process = '正在整理对话上下文。';
       var sources = const <AiChatSource>[];
       var images = const <AiChatImage>[];
+      String? drawingText;
       await for (final line
           in response.transform(utf8.decoder).transform(const LineSplitter())) {
         if (line.startsWith('event:')) {
@@ -80,6 +82,8 @@ class AiChatClient {
               jsonDecode(line.substring(5).trim()) as Map<String, dynamic>;
           if (event == 'process') {
             process = data['text'] as String? ?? process;
+          } else if (event == 'drawing') {
+            drawingText = data['text'] as String?;
           } else if (event == 'delta') {
             text += data['text'] as String? ?? '';
           } else if (event == 'done') {
@@ -94,9 +98,15 @@ class AiChatClient {
               data['message'] as String? ?? 'AI 暂时没能接上，稍后再试试吧。',
             );
           }
-          onProgress?.call(
-            AiChatProgress(text: text, process: process, sources: sources),
+          await onProgress?.call(
+            AiChatProgress(
+              text: text,
+              process: process,
+              sources: sources,
+              drawingText: drawingText,
+            ),
           );
+          drawingText = null;
         }
       }
       if (text.trim().isEmpty) throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
@@ -256,12 +266,14 @@ class AiChatReply {
     required this.text,
     required this.process,
     required this.sources,
+    this.drawingText,
     this.images = const [],
   });
 
   final String text;
   final String process;
   final List<AiChatSource> sources;
+  final String? drawingText;
   final List<AiChatImage> images;
 }
 
