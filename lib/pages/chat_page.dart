@@ -41,7 +41,6 @@ class _ChatPageState extends State<ChatPage> {
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
   String _streamedText = '';
-  String _streamedProcess = '正在整理对话上下文。';
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -137,7 +136,6 @@ class _ChatPageState extends State<ChatPage> {
       _inputController.clear();
       _isReplying = true;
       _streamedText = '';
-      _streamedProcess = '正在整理对话上下文。';
     });
     _scrollToEnd();
 
@@ -212,7 +210,6 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) return;
     setState(() {
       _streamedText = progress.text;
-      _streamedProcess = progress.process;
     });
     _scrollToEnd();
   }
@@ -761,10 +758,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                         if (_isReplying)
                           _streamedText.isEmpty
-                              ? _TypingBubble(
-                                  color: widget.companion.color,
-                                  text: _streamedProcess,
-                                )
+                              ? _TypingBubble(color: widget.companion.color)
                               : _MessageBubble(
                                   message: _ChatMessage(
                                     id: 'streaming',
@@ -1011,10 +1005,9 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.color, required this.text});
+  const _TypingBubble({required this.color});
 
   final Color color;
-  final String text;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -1041,7 +1034,7 @@ class _TypingBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Flexible(child: Text(text)),
+            const Text('正在回复…'),
           ],
         ),
       ),
