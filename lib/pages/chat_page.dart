@@ -40,8 +40,10 @@ class _ChatPageState extends State<ChatPage> {
   Conversation? _conversation;
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
+  bool _isCompressing = false;
   String _streamedText = '';
   String? _drawingMessageId;
+  String? _compressionStatus;
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -74,12 +76,14 @@ class _ChatPageState extends State<ChatPage> {
           await _store.createConversation(widget.companion.id);
       var storedMessages = await _store.messages(selected.id);
       if (storedMessages.isEmpty) {
-        await _store.addMessage(
-          conversationId: selected.id,
-          role: MessageRole.assistant,
-          content: widget.companion.openingMessage,
-        );
-        storedMessages = await _store.messages(selected.id);
+        if (selected.summary.isEmpty) {
+          await _store.addMessage(
+            conversationId: selected.id,
+            role: MessageRole.assistant,
+            content: widget.companion.openingMessage,
+          );
+          storedMessages = await _store.messages(selected.id);
+        }
       }
       final pending = await _store.memories(
         widget.companion.id,
@@ -88,7 +92,16 @@ class _ChatPageState extends State<ChatPage> {
       if (!mounted) return;
       setState(() {
         _conversation = selected;
-        _messages = storedMessages.map(_ChatMessage.fromStored).toList();
+        _messages = selected.summary.isNotEmpty && storedMessages.isEmpty
+            ? const [
+                _ChatMessage(
+                  id: 'compressed-history',
+                  text: '较早对话已压缩',
+                  fromUser: false,
+                ),
+              ]
+            : storedMessages.map(_ChatMessage.fromStored).toList();
+        _compressionStatus = selected.summary.isEmpty ? null : '上下文压缩完成';
         _pendingMemories = pending;
       });
       _scrollToEnd();
@@ -114,7 +127,8 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _send([String? suggestedText]) async {
     final text = (suggestedText ?? _inputController.text).trim();
-    if (text.isEmpty || _isReplying || _isLoadingConversation) return;
+    if (text.isEmpty || _isReplying || _isCompressing || _isLoadingConversation)
+      return;
     if (!widget.companion.isAvailable) {
       ScaffoldMessenger.of(
         context,
@@ -179,6 +193,7 @@ class _ChatPageState extends State<ChatPage> {
         if (_isVoiceMode) unawaited(_speak(reply.text));
       }
       unawaited(_proposeMemories(conversation.id));
+      unawaited(_compactContext(conversation.id));
     } on AiQuotaException catch (error) {
       await _store.deleteMessage(userMessage.id);
       if (mounted) {
@@ -294,58 +309,73 @@ class _ChatPageState extends State<ChatPage> {
   }) async {
     final existingConversation = await _store.conversation(conversationId);
     if (existingConversation == null) throw const AiChatException('当前会话已不存在。');
-    var conversation = existingConversation;
-    var shouldForceTrim = forceTrim;
-    while (true) {
-      final messages = await _store.messages(conversation.id);
-      final memories = (await _store.memories(
-        widget.companion.id,
-        status: MemoryStatus.approved.name,
-      )).take(100).toList();
-      final window = limitContext(
-        messages: messages,
-        summary: conversation.summary,
-        memories: memories,
-      );
-      final forcedIds =
-          shouldForceTrim &&
-              window.removedMessageIds.isEmpty &&
-              messages.length > 1
-          ? [messages.first.id]
-          : const <String>[];
-      final messageIds = window.removedMessageIds.isEmpty
-          ? forcedIds
-          : window.removedMessageIds;
-      if (messageIds.isEmpty) {
-        return _PreparedContext(
-          messages: window.messages,
-          summary: conversation.summary,
-          memories: memories,
-        );
-      }
-      final ids = messageIds.toSet();
-      final batch = _summaryBatch(
-        messages.where((message) => ids.contains(message.id)).toList(),
-      );
-      if (batch.isEmpty) throw const AiChatException('上下文内容过大，无法继续整理。');
+    final messages = await _store.messages(existingConversation.id);
+    final memories = (await _store.memories(
+      widget.companion.id,
+      status: MemoryStatus.approved.name,
+    )).take(100).toList();
+    final window = limitContext(
+      messages: messages,
+      summary: existingConversation.summary,
+      memories: memories,
+    );
+    final contextMessages = forceTrim && window.messages.length > 1
+        ? window.messages.skip(1).toList()
+        : window.messages;
+    if (contextMessages.isEmpty) {
+      throw const AiChatException('上下文内容过大，无法继续整理。');
+    }
+    return _PreparedContext(
+      messages: contextMessages,
+      summary: existingConversation.summary,
+      memories: memories,
+    );
+  }
+
+  Future<void> _compactContext(String conversationId) async {
+    final conversation = await _store.conversation(conversationId);
+    if (conversation == null) return;
+    final messages = await _store.messages(conversationId);
+    final memories = (await _store.memories(
+      widget.companion.id,
+      status: MemoryStatus.approved.name,
+    )).take(100).toList();
+    final window = limitContext(
+      messages: messages,
+      summary: conversation.summary,
+      memories: memories,
+    );
+    if (window.removedMessageIds.isEmpty) return;
+    final ids = window.removedMessageIds.toSet();
+    final batch = _summaryBatch(
+      messages.where((message) => ids.contains(message.id)).toList(),
+    );
+    if (batch.isEmpty) return;
+    if (mounted && _conversation?.id == conversationId) {
+      setState(() {
+        _isCompressing = true;
+        _compressionStatus = '上下文压缩中';
+      });
+    }
+    try {
       final summary = await _aiChatClient.summarize(
         conversation.summary,
         batch.map(_asAiMessage).toList(),
         agentId: widget.companion.id,
       );
       await _store.replaceSummaryAndDeleteMessages(
-        conversationId: conversation.id,
+        conversationId: conversationId,
         summary: summary,
         messageIds: batch.map((message) => message.id).toList(),
       );
-      shouldForceTrim = false;
-      conversation = conversation.copyWith(summary: summary);
-      if (mounted && _conversation?.id == conversation.id) {
-        setState(
-          () => _messages.removeWhere(
-            (message) => batch.any((stored) => stored.id == message.id),
-          ),
-        );
+    } on AiChatException {
+      return;
+    } finally {
+      if (mounted && _conversation?.id == conversationId) {
+        setState(() {
+          _isCompressing = false;
+          _compressionStatus = '上下文压缩完成';
+        });
       }
     }
   }
@@ -806,6 +836,8 @@ class _ChatPageState extends State<ChatPage> {
                                 end: 0,
                                 duration: messageDuration,
                               ),
+                        if (_compressionStatus case final status?)
+                          _CompressionNotice(text: status),
                         if (_isReplying)
                           _streamedText.isEmpty
                               ? _TypingBubble(color: widget.companion.color)
@@ -934,6 +966,7 @@ class _ChatPageState extends State<ChatPage> {
                         child: FilledButton(
                           onPressed:
                               _isReplying ||
+                                  _isCompressing ||
                                   _isLoadingConversation ||
                                   _inputController.text.trim().isEmpty
                               ? null
@@ -1086,6 +1119,28 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    ),
+  );
+}
+
+class _CompressionNotice extends StatelessWidget {
+  const _CompressionNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.compress_rounded, size: 16),
+          const SizedBox(width: 6),
+          Text(text, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     ),
