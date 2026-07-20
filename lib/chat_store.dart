@@ -20,7 +20,7 @@ class ChatStore {
     _database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: (database, version) async {
           await database.execute('''
             CREATE TABLE conversations (
@@ -43,6 +43,7 @@ class ChatStore {
               image_data TEXT NOT NULL DEFAULT '',
               image_url TEXT NOT NULL DEFAULT '',
               image_path TEXT NOT NULL DEFAULT '',
+              summarized_at INTEGER,
               created_at INTEGER NOT NULL
             )
           ''');
@@ -92,6 +93,11 @@ class ChatStore {
           if (oldVersion < 6) {
             await database.execute(
               "ALTER TABLE messages ADD COLUMN image_path TEXT NOT NULL DEFAULT ''",
+            );
+          }
+          if (oldVersion < 7) {
+            await database.execute(
+              'ALTER TABLE messages ADD COLUMN summarized_at INTEGER',
             );
           }
         },
@@ -218,7 +224,7 @@ class ChatStore {
     return message;
   }
 
-  Future<void> replaceSummaryAndDeleteMessages({
+  Future<void> replaceSummaryAndMarkMessages({
     required String conversationId,
     required String summary,
     required List<String> messageIds,
@@ -236,9 +242,10 @@ class ChatStore {
         whereArgs: [conversationId],
       );
       final marks = List.filled(messageIds.length, '?').join(',');
-      await transaction.delete(
+      await transaction.update(
         'messages',
-        where: 'id IN ($marks)',
+        {'summarized_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id IN ($marks) AND summarized_at IS NULL',
         whereArgs: messageIds,
       );
     });
@@ -415,6 +422,7 @@ class StoredMessage {
     this.imageData = '',
     this.imageUrl = '',
     this.imagePath = '',
+    this.summarizedAt,
     required this.createdAt,
   });
 
@@ -427,6 +435,7 @@ class StoredMessage {
   final String imageData;
   final String imageUrl;
   final String imagePath;
+  final int? summarizedAt;
   final int createdAt;
 
   factory StoredMessage.fromRow(Map<String, Object?> row) => StoredMessage(
@@ -439,6 +448,7 @@ class StoredMessage {
     imageData: row['image_data'] as String? ?? '',
     imageUrl: row['image_url'] as String? ?? '',
     imagePath: row['image_path'] as String? ?? '',
+    summarizedAt: row['summarized_at'] as int?,
     createdAt: row['created_at']! as int,
   );
 
@@ -452,6 +462,7 @@ class StoredMessage {
     'image_data': imageData,
     'image_url': imageUrl,
     'image_path': imagePath,
+    'summarized_at': summarizedAt,
     'created_at': createdAt,
   };
 }

@@ -101,7 +101,10 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ]
             : storedMessages.map(_ChatMessage.fromStored).toList();
-        _compressionStatus = selected.summary.isEmpty ? null : '上下文压缩完成';
+        _compressionStatus =
+            selected.summary.isNotEmpty && storedMessages.isEmpty
+            ? '上下文压缩完成'
+            : null;
         _pendingMemories = pending;
       });
       _scrollToEnd();
@@ -309,7 +312,9 @@ class _ChatPageState extends State<ChatPage> {
   }) async {
     final existingConversation = await _store.conversation(conversationId);
     if (existingConversation == null) throw const AiChatException('当前会话已不存在。');
-    final messages = await _store.messages(existingConversation.id);
+    final messages = (await _store.messages(
+      existingConversation.id,
+    )).where((message) => message.summarizedAt == null).toList();
     final memories = (await _store.memories(
       widget.companion.id,
       status: MemoryStatus.approved.name,
@@ -335,7 +340,9 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _compactContext(String conversationId) async {
     final conversation = await _store.conversation(conversationId);
     if (conversation == null) return;
-    final messages = await _store.messages(conversationId);
+    final messages = (await _store.messages(
+      conversationId,
+    )).where((message) => message.summarizedAt == null).toList();
     final memories = (await _store.memories(
       widget.companion.id,
       status: MemoryStatus.approved.name,
@@ -363,7 +370,7 @@ class _ChatPageState extends State<ChatPage> {
         batch.map(_asAiMessage).toList(),
         agentId: widget.companion.id,
       );
-      await _store.replaceSummaryAndDeleteMessages(
+      await _store.replaceSummaryAndMarkMessages(
         conversationId: conversationId,
         summary: summary,
         messageIds: batch.map((message) => message.id).toList(),
@@ -1011,6 +1018,7 @@ class _ChatMessage {
     this.imageData = '',
     this.imageUrl = '',
     this.imagePath = '',
+    this.summarizedAt,
   });
 
   final String id;
@@ -1021,6 +1029,7 @@ class _ChatMessage {
   final String imageData;
   final String imageUrl;
   final String imagePath;
+  final int? summarizedAt;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
@@ -1031,6 +1040,7 @@ class _ChatMessage {
     imageData: message.imageData,
     imageUrl: message.imageUrl,
     imagePath: message.imagePath,
+    summarizedAt: message.summarizedAt,
   );
 }
 

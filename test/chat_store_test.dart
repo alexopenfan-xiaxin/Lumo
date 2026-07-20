@@ -6,7 +6,7 @@ void main() {
   setUpAll(sqfliteFfiInit);
 
   test(
-    'stores a conversation and deletes compressed source messages',
+    'stores a conversation and keeps compressed source messages visible',
     () async {
       final store = ChatStore(
         factory: databaseFactoryFfi,
@@ -32,7 +32,7 @@ void main() {
         ],
       );
 
-      await store.replaceSummaryAndDeleteMessages(
+      await store.replaceSummaryAndMarkMessages(
         conversationId: conversation.id,
         summary: '用户喜欢在安静的时候散步。',
         messageIds: [first.id],
@@ -40,40 +40,45 @@ void main() {
 
       final messages = await store.messages(conversation.id);
       final saved = await store.conversation(conversation.id);
-      expect(messages, hasLength(1));
+      expect(messages, hasLength(2));
       expect(saved?.summary, '用户喜欢在安静的时候散步。');
-      expect(messages.single.process, '已结合对话上下文生成回复');
-      expect(messages.single.sources.single.url, 'https://example.com');
-      expect(messages.single.imageData, 'data:image/png;base64,AA==');
-      expect(messages.single.imageUrl, 'https://example.com/image.png');
+      expect(messages.first.summarizedAt, isNotNull);
+      expect(messages.last.process, '已结合对话上下文生成回复');
+      expect(messages.last.sources.single.url, 'https://example.com');
+      expect(messages.last.imageData, 'data:image/png;base64,AA==');
+      expect(messages.last.imageUrl, 'https://example.com/image.png');
       expect(
-        messages.single.imagePath,
+        messages.last.imagePath,
         '/data/user/0/app.lumo.companion/databases/lumo_images/image.png',
       );
     },
   );
 
-  test('retains the summary when every source message is compressed', () async {
-    final store = ChatStore(
-      factory: databaseFactoryFfi,
-      databasePath: ':memory:',
-    );
-    final conversation = await store.createConversation('meow');
-    final message = await store.addMessage(
-      conversationId: conversation.id,
-      role: MessageRole.user,
-      content: '一段较早的对话。',
-    );
+  test(
+    'retains visible messages when every source message is compressed',
+    () async {
+      final store = ChatStore(
+        factory: databaseFactoryFfi,
+        databasePath: ':memory:',
+      );
+      final conversation = await store.createConversation('meow');
+      final message = await store.addMessage(
+        conversationId: conversation.id,
+        role: MessageRole.user,
+        content: '一段较早的对话。',
+      );
 
-    await store.replaceSummaryAndDeleteMessages(
-      conversationId: conversation.id,
-      summary: '已压缩的对话摘要。',
-      messageIds: [message.id],
-    );
+      await store.replaceSummaryAndMarkMessages(
+        conversationId: conversation.id,
+        summary: '已压缩的对话摘要。',
+        messageIds: [message.id],
+      );
 
-    expect(await store.messages(conversation.id), isEmpty);
-    expect((await store.conversation(conversation.id))?.summary, '已压缩的对话摘要。');
-  });
+      final messages = await store.messages(conversation.id);
+      expect(messages.single.summarizedAt, isNotNull);
+      expect((await store.conversation(conversation.id))?.summary, '已压缩的对话摘要。');
+    },
+  );
 
   test('keeps memory candidates pending until approved', () async {
     final store = ChatStore(
