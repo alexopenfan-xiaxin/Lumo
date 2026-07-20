@@ -11,6 +11,25 @@ StoredMessage message(String id, String content) => StoredMessage(
 );
 
 void main() {
+  test('reports UTF-8 context usage across every dynamic source', () {
+    expect(
+      contextUsage(
+        messages: [message('message', '你好')],
+        summary: 'abc',
+        memories: const [
+          MemoryEntry(
+            id: 'memory',
+            agentId: 'meow',
+            content: '记忆',
+            status: MemoryStatus.approved,
+            createdAt: 0,
+          ),
+        ],
+      ),
+      15,
+    );
+  });
+
   test('removes oldest messages before recent messages at the 128k budget', () {
     final oldest = message('oldest', List.filled(70000, 'a').join());
     final newest = message('newest', List.filled(70000, 'b').join());

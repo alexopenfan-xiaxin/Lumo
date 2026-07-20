@@ -16,15 +16,31 @@ class ContextWindow {
 
 int estimatedTokens(String value) => utf8.encode(value).length;
 
+int contextUsage({
+  required List<StoredMessage> messages,
+  required String summary,
+  required List<MemoryEntry> memories,
+}) =>
+    estimatedTokens(summary) +
+    memories.fold(
+      0,
+      (total, memory) => total + estimatedTokens(memory.content),
+    ) +
+    messages.fold(
+      0,
+      (total, message) => total + estimatedTokens(message.content),
+    );
+
 ContextWindow limitContext({
   required List<StoredMessage> messages,
   required String summary,
   required List<MemoryEntry> memories,
 }) {
-  var usedTokens = estimatedTokens(summary);
-  for (final memory in memories) {
-    usedTokens += estimatedTokens(memory.content);
-  }
+  var usedTokens = contextUsage(
+    messages: const [],
+    summary: summary,
+    memories: memories,
+  );
 
   final kept = <StoredMessage>[];
   final removed = <String>[];

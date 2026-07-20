@@ -47,6 +47,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
+  int _contextUsage = 0;
 
   @override
   void initState() {
@@ -89,6 +90,10 @@ class _ChatPageState extends State<ChatPage> {
         widget.companion.id,
         status: MemoryStatus.pending.name,
       );
+      final approved = (await _store.memories(
+        widget.companion.id,
+        status: MemoryStatus.approved.name,
+      )).take(100).toList();
       if (!mounted) return;
       setState(() {
         _conversation = selected;
@@ -106,6 +111,13 @@ class _ChatPageState extends State<ChatPage> {
             ? '上下文压缩完成'
             : null;
         _pendingMemories = pending;
+        _contextUsage = contextUsage(
+          messages: storedMessages
+              .where((message) => message.summarizedAt == null)
+              .toList(),
+          summary: selected.summary,
+          memories: approved,
+        );
       });
       _scrollToEnd();
     } finally {
@@ -166,6 +178,15 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       var context = await _prepareContext(conversation.id);
+      if (mounted) {
+        setState(
+          () => _contextUsage = contextUsage(
+            messages: context.messages,
+            summary: context.summary,
+            memories: context.memories,
+          ),
+        );
+      }
       AiChatReply reply;
       try {
         reply = await _aiChatClient.reply(
@@ -196,9 +217,14 @@ class _ChatPageState extends State<ChatPage> {
         imagePath: image.path,
       );
       if (mounted) {
-        setState(
-          () => _messages.add(_ChatMessage.fromStored(assistantMessage)),
-        );
+        setState(() {
+          _messages.add(_ChatMessage.fromStored(assistantMessage));
+          _contextUsage = contextUsage(
+            messages: [...context.messages, assistantMessage],
+            summary: context.summary,
+            memories: context.memories,
+          );
+        });
         if (_isVoiceMode) unawaited(_speak(reply.text));
       }
       unawaited(_proposeMemories(conversation.id));
@@ -804,6 +830,30 @@ class _ChatPageState extends State<ChatPage> {
           ],
         ),
         actions: [
+          if (widget.companion.isAvailable)
+            Tooltip(
+              message:
+                  '上下文已使用 ${(_contextUsage / maxDynamicContextTokens * 100).round()}%',
+              child: Semantics(
+                label:
+                    '上下文已使用 ${(_contextUsage / maxDynamicContextTokens * 100).round()}%',
+                child: SizedBox.square(
+                  dimension: 48,
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(
+                        value: (_contextUsage / maxDynamicContextTokens)
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                        strokeWidth: 2.5,
+                        backgroundColor: Theme.of(context).dividerColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (widget.companion.isAvailable)
             IconButton(
               tooltip: '会话管理',
