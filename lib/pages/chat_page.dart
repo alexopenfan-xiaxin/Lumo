@@ -162,13 +162,15 @@ class _ChatPageState extends State<ChatPage> {
           onProgress: _updateStream,
         );
       }
+      final image = reply.images.isEmpty
+          ? const _CachedImage()
+          : await _cacheImage(reply.images.first.url);
       final assistantMessage = await _store.addMessage(
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: reply.text,
-        imageData: reply.images.isEmpty
-            ? ''
-            : await _cacheImage(reply.images.first.url),
+        imageData: image.data,
+        imageUrl: image.url,
       );
       if (mounted) {
         setState(
@@ -230,28 +232,59 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToEnd();
   }
 
-  Future<String> _cacheImage(String url) async {
+  Future<_CachedImage> _cacheImage(String url) async {
     final client = HttpClient();
     try {
       final response = await (await client.getUrl(Uri.parse(url))).close();
-      final contentType = response.headers.contentType?.mimeType ?? '';
-      if (response.statusCode != HttpStatus.ok ||
-          !contentType.startsWith('image/')) {
-        throw const AiChatException('图片生成成功，但保存到本地失败，请重新生成。');
-      }
+      if (response.statusCode != HttpStatus.ok) return _CachedImage(url: url);
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response) {
         bytes.add(chunk);
         if (bytes.length > 12 * 1024 * 1024) {
-          throw const AiChatException('图片过大，无法保存到本地。');
+          return _CachedImage(url: url);
         }
       }
-      return 'data:$contentType;base64,${base64Encode(bytes.takeBytes())}';
-    } on SocketException {
-      throw const AiChatException('图片生成成功，但保存到本地失败，请检查网络后重试。');
+      final data = bytes.takeBytes();
+      final mimeType = _imageMimeType(data);
+      return mimeType == null
+          ? _CachedImage(url: url)
+          : _CachedImage(
+              url: url,
+              data: 'data:$mimeType;base64,${base64Encode(data)}',
+            );
+    } catch (_) {
+      return _CachedImage(url: url);
     } finally {
       client.close(force: true);
     }
+  }
+
+  String? _imageMimeType(Uint8List bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4e &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[2] == 0xff) {
+      return 'image/jpeg';
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+    return null;
   }
 
   Future<_PreparedContext> _prepareContext(
@@ -942,6 +975,7 @@ class _ChatMessage {
     this.process = '',
     this.sources = const [],
     this.imageData = '',
+    this.imageUrl = '',
   });
 
   final String id;
@@ -950,6 +984,7 @@ class _ChatMessage {
   final String process;
   final List<MessageSource> sources;
   final String imageData;
+  final String imageUrl;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
@@ -958,6 +993,7 @@ class _ChatMessage {
     process: message.process,
     sources: message.sources,
     imageData: message.imageData,
+    imageUrl: message.imageUrl,
   );
 }
 
@@ -1013,11 +1049,32 @@ class _MessageBubble extends StatelessWidget {
                 semanticLabel: '智能体生成的图片',
               ),
             ),
+          ] else if (message.imageUrl.isNotEmpty) ...[
+            if (message.text.isNotEmpty) const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                message.imageUrl,
+                fit: BoxFit.cover,
+                semanticLabel: '智能体生成的图片',
+                errorBuilder: (_, _, _) => const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('图片链接已失效'),
+                ),
+              ),
+            ),
           ],
         ],
       ),
     ),
   );
+}
+
+class _CachedImage {
+  const _CachedImage({this.url = '', this.data = ''});
+
+  final String url;
+  final String data;
 }
 
 class _TypingBubble extends StatelessWidget {
