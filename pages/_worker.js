@@ -540,8 +540,9 @@ const replyWithFallback = async (messages, apiToken, maxTokens, tools = [], tool
   return result;
 };
 
-const replyWithTools = async (messages, env, onProcess = () => {}) => {
+const replyWithTools = async (messages, env, onProcess = () => {}, onDrawing = () => {}) => {
   if (explicitlyRequestsImage(messages)) {
+    await onDrawing('我来把这幅画画下来。');
     await onProcess('正在绘制图片…');
     const generated = await generateImage({prompt: requestedImage(messages), size: '2048x2048'}, env);
     const context = generated.image
@@ -556,6 +557,7 @@ const replyWithTools = async (messages, env, onProcess = () => {}) => {
   );
   const plan = parseImagePlan(planResult.reply);
   if (plan?.generate) {
+    await onDrawing(plan.status);
     await onProcess(plan.status);
     const generated = await generateImage(plan, env);
     const context = generated.image
@@ -621,6 +623,8 @@ const streamedChat = (messages, env) => {
       await writer.write(encoder.encode(sse('process', {text: '正在整理本轮对话与已确认的记忆。\n正在判断是否需要检索最新信息。'})));
       const result = await replyWithTools(messages, env, async (text) => {
         await writer.write(encoder.encode(sse('process', {text})));
+      }, async (text) => {
+        await writer.write(encoder.encode(sse('drawing', {text})));
       });
       if (!result.reply) {
         await writer.write(encoder.encode(sse('error', {contextLimit: result.isContextLimited, message: 'AI 暂时没能接上，稍后再试试吧。'})));
