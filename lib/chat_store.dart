@@ -18,7 +18,7 @@ class ChatStore {
     _database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (database, version) async {
           await database.execute('''
             CREATE TABLE conversations (
@@ -39,6 +39,7 @@ class ChatStore {
               process TEXT NOT NULL DEFAULT '',
               sources TEXT NOT NULL DEFAULT '[]',
               image_data TEXT NOT NULL DEFAULT '',
+              image_url TEXT NOT NULL DEFAULT '',
               created_at INTEGER NOT NULL
             )
           ''');
@@ -78,6 +79,11 @@ class ChatStore {
           if (oldVersion < 4) {
             await database.execute(
               "ALTER TABLE messages ADD COLUMN image_data TEXT NOT NULL DEFAULT ''",
+            );
+          }
+          if (oldVersion < 5) {
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
             );
           }
         },
@@ -148,6 +154,7 @@ class ChatStore {
     String process = '',
     List<MessageSource> sources = const [],
     String imageData = '',
+    String imageUrl = '',
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = StoredMessage(
@@ -158,6 +165,7 @@ class ChatStore {
       process: process,
       sources: sources,
       imageData: imageData,
+      imageUrl: imageUrl,
       createdAt: now,
     );
     final database = await _db;
@@ -384,6 +392,7 @@ class StoredMessage {
     this.process = '',
     this.sources = const [],
     this.imageData = '',
+    this.imageUrl = '',
     required this.createdAt,
   });
 
@@ -394,6 +403,7 @@ class StoredMessage {
   final String process;
   final List<MessageSource> sources;
   final String imageData;
+  final String imageUrl;
   final int createdAt;
 
   factory StoredMessage.fromRow(Map<String, Object?> row) => StoredMessage(
@@ -404,6 +414,7 @@ class StoredMessage {
     process: row['process'] as String? ?? '',
     sources: _sources(row['sources'] as String? ?? '[]'),
     imageData: row['image_data'] as String? ?? '',
+    imageUrl: row['image_url'] as String? ?? '',
     createdAt: row['created_at']! as int,
   );
 
@@ -415,6 +426,7 @@ class StoredMessage {
     'process': process,
     'sources': jsonEncode(sources.map((source) => source.toJson()).toList()),
     'image_data': imageData,
+    'image_url': imageUrl,
     'created_at': createdAt,
   };
 }
