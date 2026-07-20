@@ -41,6 +41,7 @@ class _ChatPageState extends State<ChatPage> {
   List<MemoryEntry> _pendingMemories = const [];
   bool _isReplying = false;
   String _streamedText = '';
+  String? _drawingMessageId;
   bool _isLoadingConversation = false;
   bool _isListening = false;
   bool _isVoiceMode = false;
@@ -136,6 +137,7 @@ class _ChatPageState extends State<ChatPage> {
       _inputController.clear();
       _isReplying = true;
       _streamedText = '';
+      _drawingMessageId = null;
     });
     _scrollToEnd();
 
@@ -206,7 +208,21 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _updateStream(AiChatProgress progress) {
+  Future<void> _updateStream(AiChatProgress progress) async {
+    if (progress.drawingText case final text? when _drawingMessageId == null) {
+      final conversation = _conversation;
+      if (conversation != null) {
+        final message = await _store.addMessage(
+          conversationId: conversation.id,
+          role: MessageRole.assistant,
+          content: text,
+        );
+        _drawingMessageId = message.id;
+        if (mounted) {
+          setState(() => _messages.add(_ChatMessage.fromStored(message)));
+        }
+      }
+    }
     if (!mounted) return;
     setState(() {
       _streamedText = progress.text;
