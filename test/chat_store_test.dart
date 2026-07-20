@@ -53,6 +53,28 @@ void main() {
     },
   );
 
+  test('retains the summary when every source message is compressed', () async {
+    final store = ChatStore(
+      factory: databaseFactoryFfi,
+      databasePath: ':memory:',
+    );
+    final conversation = await store.createConversation('meow');
+    final message = await store.addMessage(
+      conversationId: conversation.id,
+      role: MessageRole.user,
+      content: '一段较早的对话。',
+    );
+
+    await store.replaceSummaryAndDeleteMessages(
+      conversationId: conversation.id,
+      summary: '已压缩的对话摘要。',
+      messageIds: [message.id],
+    );
+
+    expect(await store.messages(conversation.id), isEmpty);
+    expect((await store.conversation(conversation.id))?.summary, '已压缩的对话摘要。');
+  });
+
   test('keeps memory candidates pending until approved', () async {
     final store = ChatStore(
       factory: databaseFactoryFfi,
