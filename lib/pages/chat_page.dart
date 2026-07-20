@@ -169,8 +169,8 @@ class _ChatPageState extends State<ChatPage> {
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: reply.text,
-        imageData: image.data,
         imageUrl: image.url,
+        imagePath: image.path,
       );
       if (mounted) {
         setState(
@@ -245,13 +245,14 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
       final data = bytes.takeBytes();
-      final mimeType = _imageMimeType(data);
-      return mimeType == null
-          ? _CachedImage(url: url)
-          : _CachedImage(
-              url: url,
-              data: 'data:$mimeType;base64,${base64Encode(data)}',
-            );
+      final imageType = _imageType(data);
+      if (imageType == null) return _CachedImage(url: url);
+      try {
+        final path = await _store.cacheImage(data, imageType.extension);
+        return _CachedImage(url: url, path: path);
+      } on FileSystemException {
+        return _CachedImage(url: url);
+      }
     } catch (_) {
       return _CachedImage(url: url);
     } finally {
@@ -259,19 +260,19 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  String? _imageMimeType(Uint8List bytes) {
+  _ImageType? _imageType(Uint8List bytes) {
     if (bytes.length >= 8 &&
         bytes[0] == 0x89 &&
         bytes[1] == 0x50 &&
         bytes[2] == 0x4e &&
         bytes[3] == 0x47) {
-      return 'image/png';
+      return const _ImageType('png');
     }
     if (bytes.length >= 3 &&
         bytes[0] == 0xff &&
         bytes[1] == 0xd8 &&
         bytes[2] == 0xff) {
-      return 'image/jpeg';
+      return const _ImageType('jpg');
     }
     if (bytes.length >= 12 &&
         bytes[0] == 0x52 &&
@@ -282,7 +283,7 @@ class _ChatPageState extends State<ChatPage> {
         bytes[9] == 0x45 &&
         bytes[10] == 0x42 &&
         bytes[11] == 0x50) {
-      return 'image/webp';
+      return const _ImageType('webp');
     }
     return null;
   }
@@ -976,6 +977,7 @@ class _ChatMessage {
     this.sources = const [],
     this.imageData = '',
     this.imageUrl = '',
+    this.imagePath = '',
   });
 
   final String id;
@@ -985,6 +987,7 @@ class _ChatMessage {
   final List<MessageSource> sources;
   final String imageData;
   final String imageUrl;
+  final String imagePath;
 
   factory _ChatMessage.fromStored(StoredMessage message) => _ChatMessage(
     id: message.id,
@@ -994,6 +997,7 @@ class _ChatMessage {
     sources: message.sources,
     imageData: message.imageData,
     imageUrl: message.imageUrl,
+    imagePath: message.imagePath,
   );
 }
 
@@ -1039,7 +1043,25 @@ class _MessageBubble extends StatelessWidget {
                     : null,
               ),
             ),
-          if (message.imageData.isNotEmpty) ...[
+          if (message.imagePath.isNotEmpty) ...[
+            if (message.text.isNotEmpty) const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                File(message.imagePath),
+                fit: BoxFit.cover,
+                semanticLabel: '智能体生成的图片',
+                errorBuilder: (_, _, _) => message.imageUrl.isEmpty
+                    ? const SizedBox.shrink()
+                    : Image.network(
+                        message.imageUrl,
+                        fit: BoxFit.cover,
+                        semanticLabel: '智能体生成的图片',
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+              ),
+            ),
+          ] else if (message.imageData.isNotEmpty) ...[
             if (message.text.isNotEmpty) const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
@@ -1071,10 +1093,16 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _CachedImage {
-  const _CachedImage({this.url = '', this.data = ''});
+  const _CachedImage({this.url = '', this.path = ''});
 
   final String url;
-  final String data;
+  final String path;
+}
+
+class _ImageType {
+  const _ImageType(this.extension);
+
+  final String extension;
 }
 
 class _TypingBubble extends StatelessWidget {

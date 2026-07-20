@@ -25,6 +25,8 @@ void main() {
         process: '已结合对话上下文生成回复',
         imageData: 'data:image/png;base64,AA==',
         imageUrl: 'https://example.com/image.png',
+        imagePath:
+            '/data/user/0/app.lumo.companion/databases/lumo_images/image.png',
         sources: const [
           MessageSource(title: '示例来源', url: 'https://example.com'),
         ],
@@ -44,6 +46,10 @@ void main() {
       expect(messages.single.sources.single.url, 'https://example.com');
       expect(messages.single.imageData, 'data:image/png;base64,AA==');
       expect(messages.single.imageUrl, 'https://example.com/image.png');
+      expect(
+        messages.single.imagePath,
+        '/data/user/0/app.lumo.companion/databases/lumo_images/image.png',
+      );
     },
   );
 
