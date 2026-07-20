@@ -76,7 +76,7 @@ class UpdateChecker {
       '${directory.path}${Platform.pathSeparator}lumo-update-${DateTime.now().microsecondsSinceEpoch}.apk',
     );
     final partial = File('${apk.path}.part');
-    if (await partial.exists()) await partial.delete();
+    await _deleteIfExists(partial);
 
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
@@ -127,8 +127,16 @@ class UpdateChecker {
       return partial.rename(apk.path);
     } finally {
       await output?.close();
-      if (await partial.exists()) await partial.delete();
+      await _deleteIfExists(partial);
       client.close(force: true);
+    }
+  }
+
+  Future<void> _deleteIfExists(File file) async {
+    try {
+      await file.delete();
+    } on PathNotFoundException {
+      // The partial file may have been renamed after a successful download.
     }
   }
 
