@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -18,7 +20,7 @@ class ChatStore {
     _database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: (database, version) async {
           await database.execute('''
             CREATE TABLE conversations (
@@ -40,6 +42,7 @@ class ChatStore {
               sources TEXT NOT NULL DEFAULT '[]',
               image_data TEXT NOT NULL DEFAULT '',
               image_url TEXT NOT NULL DEFAULT '',
+              image_path TEXT NOT NULL DEFAULT '',
               created_at INTEGER NOT NULL
             )
           ''');
@@ -84,6 +87,11 @@ class ChatStore {
           if (oldVersion < 5) {
             await database.execute(
               "ALTER TABLE messages ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
+            );
+          }
+          if (oldVersion < 6) {
+            await database.execute(
+              "ALTER TABLE messages ADD COLUMN image_path TEXT NOT NULL DEFAULT ''",
             );
           }
         },
@@ -147,6 +155,17 @@ class ChatStore {
     return rows.map(StoredMessage.fromRow).toList();
   }
 
+  Future<String> cacheImage(Uint8List bytes, String extension) async {
+    final directory = Directory(join(await getDatabasesPath(), 'lumo_images'));
+    await directory.create(recursive: true);
+    final path = join(
+      directory.path,
+      'image-${DateTime.now().microsecondsSinceEpoch}.$extension',
+    );
+    await File(path).writeAsBytes(bytes, flush: true);
+    return path;
+  }
+
   Future<StoredMessage> addMessage({
     required String conversationId,
     required MessageRole role,
@@ -155,6 +174,7 @@ class ChatStore {
     List<MessageSource> sources = const [],
     String imageData = '',
     String imageUrl = '',
+    String imagePath = '',
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final message = StoredMessage(
@@ -166,6 +186,7 @@ class ChatStore {
       sources: sources,
       imageData: imageData,
       imageUrl: imageUrl,
+      imagePath: imagePath,
       createdAt: now,
     );
     final database = await _db;
@@ -393,6 +414,7 @@ class StoredMessage {
     this.sources = const [],
     this.imageData = '',
     this.imageUrl = '',
+    this.imagePath = '',
     required this.createdAt,
   });
 
@@ -404,6 +426,7 @@ class StoredMessage {
   final List<MessageSource> sources;
   final String imageData;
   final String imageUrl;
+  final String imagePath;
   final int createdAt;
 
   factory StoredMessage.fromRow(Map<String, Object?> row) => StoredMessage(
@@ -415,6 +438,7 @@ class StoredMessage {
     sources: _sources(row['sources'] as String? ?? '[]'),
     imageData: row['image_data'] as String? ?? '',
     imageUrl: row['image_url'] as String? ?? '',
+    imagePath: row['image_path'] as String? ?? '',
     createdAt: row['created_at']! as int,
   );
 
@@ -427,6 +451,7 @@ class StoredMessage {
     'sources': jsonEncode(sources.map((source) => source.toJson()).toList()),
     'image_data': imageData,
     'image_url': imageUrl,
+    'image_path': imagePath,
     'created_at': createdAt,
   };
 }
