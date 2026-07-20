@@ -130,15 +130,21 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _send([String? suggestedText]) async {
     final text = (suggestedText ?? _inputController.text).trim();
-    if (text.isEmpty || _isReplying || _isCompressing || _isLoadingConversation)
+    if (text.isEmpty ||
+        _isReplying ||
+        _isCompressing ||
+        _isLoadingConversation) {
       return;
+    }
     if (!widget.companion.isAvailable) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('该智能体暂未开放，敬请期待。')));
       return;
     }
-    if (_conversation == null) await _loadConversation();
+    if (_conversation == null) {
+      await _loadConversation();
+    }
     final conversation = _conversation;
     if (conversation == null) return;
 
