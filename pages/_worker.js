@@ -261,6 +261,42 @@ const register = async (request, env) => {
   return json(await createSession(env, {id, username, is_member: 0, role: 'user'}));
 };
 
+export const updateAccount = async (request, env, sessionAccount) => {
+  if (!sessionAccount) return json({error: '登录已过期。'}, 401);
+  const body = await readBody(request);
+  const hasUsername = typeof body?.username === 'string';
+  const hasPassword = typeof body?.newPassword === 'string';
+  if (!body || typeof body.currentPassword !== 'string' || (!hasUsername && !hasPassword)) {
+    return json({error: '请填写当前密码和要修改的内容。'}, 400);
+  }
+  if ((hasUsername && !/^[a-zA-Z0-9_]{3,24}$/.test(body.username)) ||
+      (hasPassword && (body.newPassword.length < 8 || body.newPassword.length > 128))) {
+    return json({error: '账号需为 3–24 位字母、数字或下划线；密码至少 8 位。'}, 400);
+  }
+  const account = await env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(sessionAccount.id).first();
+  if (!account || body.currentPassword.length > 128 ||
+      (await passwordHash(body.currentPassword, account.password_salt)) !== account.password_hash) {
+    return json({error: '当前密码不正确。'}, 401);
+  }
+  const username = hasUsername ? body.username.toLowerCase() : account.username;
+  if (username !== account.username) {
+    const existing = await env.DB.prepare('SELECT id FROM accounts WHERE username = ?').bind(username).first();
+    if (existing) return json({error: '该账号名称已被使用。'}, 409);
+  }
+  const salt = hasPassword ? randomHex(16) : account.password_salt;
+  const hash = hasPassword ? await passwordHash(body.newPassword, salt) : account.password_hash;
+  try {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE accounts SET username = ?, password_hash = ?, password_salt = ? WHERE id = ?')
+        .bind(username, hash, salt, account.id),
+      env.DB.prepare('DELETE FROM sessions WHERE account_id = ?').bind(account.id),
+    ]);
+  } catch {
+    return json({error: '账号修改失败，请稍后再试。'}, 500);
+  }
+  return json(await createSession(env, {...account, username}));
+};
+
 export const validInviteCount = (count) => Number.isInteger(count) && count >= 1 && count <= 100;
 
 const invites = async (request, env, account) => {
@@ -708,6 +744,7 @@ export default {
     if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);
+    if (request.method === 'PATCH' && url.pathname === '/auth/account') return updateAccount(request, env, await authenticate(request, env));
     if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/admin/invites') return invites(request, env, await authenticate(request, env));
     if (request.method === 'POST' && url.pathname === '/admin/agents/draft') return draftAgent(request, env, await authenticate(request, env));
     if (request.method === 'GET' && url.pathname === '/agents') return json({agents: (await loadAgents(env)).filter((agent) => agent.enabled).map(publicAgent)});
