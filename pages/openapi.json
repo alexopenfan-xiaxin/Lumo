@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Lumo Agent Management API",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Authenticated API for an administrator-controlled agent to create, update, upload avatars for, inspect, and enable Lumo companions."
   },
   "servers": [{"url": "https://lumo-ai-bod.pages.dev"}],
@@ -23,6 +23,20 @@
           "200": {"description": "Session created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Session"}}}},
           "400": {"$ref": "#/components/responses/Error"},
           "401": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/auth/account": {
+      "patch": {
+        "summary": "Change the signed-in account name or password",
+        "description": "Requires the current password. A successful update revokes existing sessions and returns a replacement session.",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountUpdate"}}}},
+        "responses": {
+          "200": {"description": "Account updated and replacement session created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Session"}}}},
+          "400": {"$ref": "#/components/responses/Error"},
+          "401": {"$ref": "#/components/responses/Error"},
+          "409": {"$ref": "#/components/responses/Error"}
         }
       }
     },
@@ -96,6 +110,7 @@
     "responses": {"Error": {"description": "Request rejected", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
     "schemas": {
       "Login": {"type": "object", "additionalProperties": false, "required": ["username", "password"], "properties": {"username": {"type": "string", "pattern": "^[a-zA-Z0-9_]{3,24}$"}, "password": {"type": "string", "minLength": 8, "maxLength": 128, "format": "password"}}},
+      "AccountUpdate": {"type": "object", "additionalProperties": false, "required": ["currentPassword"], "minProperties": 2, "properties": {"currentPassword": {"type": "string", "maxLength": 128, "format": "password"}, "username": {"type": "string", "pattern": "^[a-zA-Z0-9_]{3,24}$"}, "newPassword": {"type": "string", "minLength": 8, "maxLength": 128, "format": "password"}}},
       "Session": {"type": "object", "required": ["username", "token", "isMember", "role"], "properties": {"username": {"type": "string"}, "token": {"type": "string", "description": "Sensitive bearer token. Never expose or commit it."}, "isMember": {"type": "boolean"}, "role": {"type": "string", "enum": ["admin", "user"], "description": "Abort the management workflow unless this is admin."}}},
       "AgentInput": {
         "type": "object",
