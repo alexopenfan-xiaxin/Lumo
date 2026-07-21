@@ -18,7 +18,7 @@ class ProfilePage extends StatefulWidget {
   });
 
   final ThemeMode themeMode;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final Future<void> Function(ThemeMode) onThemeModeChanged;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -329,16 +329,26 @@ class _ProfilePageState extends State<ProfilePage> {
     ),
   );
 
+  Future<void> _showAppearance() => Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => _AppearancePage(
+        themeMode: widget.themeMode,
+        onChanged: widget.onThemeModeChanged,
+      ),
+    ),
+  );
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => _SettingsDetailPage(
           account: () => _account,
+          themeMode: () => widget.themeMode,
           onAccount: _showAccount,
           onPrivacy: _showPrivacy,
           onLicenses: _showLicenses,
           onAbout: _showAbout,
-          onThemeChanged: widget.onThemeModeChanged,
+          onAppearance: _showAppearance,
         ),
       ),
     );
@@ -421,18 +431,10 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               Expanded(
                 child: _ProfileShortcut(
-                  icon: widget.themeMode == ThemeMode.dark
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
-                  label: widget.themeMode == ThemeMode.dark ? '浅色模式' : '深色模式',
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    widget.onThemeModeChanged(
-                      widget.themeMode == ThemeMode.dark
-                          ? ThemeMode.light
-                          : ThemeMode.dark,
-                    );
-                  },
+                  key: const ValueKey('appearance-shortcut'),
+                  icon: Icons.brightness_6_outlined,
+                  label: '外观模式',
+                  onTap: _showAppearance,
                 ),
               ),
               Expanded(
@@ -500,6 +502,7 @@ class _ProfileShortcut extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    super.key,
   });
 
   final IconData icon;
@@ -643,7 +646,7 @@ class _LicensesPage extends StatelessWidget {
           children: [
             _LicenseLine(name: 'Flutter / Dart', license: 'BSD 3-Clause'),
             _LicenseLine(
-              name: 'flutter_animate、flutter_markdown、flutter_svg、sqflite',
+              name: 'flutter_animate、flutter_markdown、sqflite',
               license: 'MIT / BSD',
             ),
             _LicenseLine(name: 'path、sqflite_common_ffi', license: 'BSD / MIT'),
@@ -706,22 +709,138 @@ class _AboutPage extends StatelessWidget {
   );
 }
 
+class _AppearancePage extends StatefulWidget {
+  const _AppearancePage({required this.themeMode, required this.onChanged});
+
+  final ThemeMode themeMode;
+  final Future<void> Function(ThemeMode) onChanged;
+
+  @override
+  State<_AppearancePage> createState() => _AppearancePageState();
+}
+
+class _AppearancePageState extends State<_AppearancePage> {
+  late ThemeMode _themeMode = widget.themeMode;
+  bool _saving = false;
+
+  Future<void> _select(ThemeMode mode) async {
+    if (_saving || mode == _themeMode) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onChanged(mode);
+      if (mounted) {
+        HapticFeedback.selectionClick();
+        setState(() => _themeMode = mode);
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法保存外观模式，请重试。')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: '外观模式',
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        24,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      children: [
+        const _SettingsLabel('选择显示方式'),
+        _SettingsGroup(
+          children: [
+            _AppearanceOption(
+              key: const ValueKey('appearance-system'),
+              title: '跟随系统',
+              subtitle: '随设备的外观设置自动切换',
+              icon: Icons.brightness_auto_outlined,
+              selected: _themeMode == ThemeMode.system,
+              onTap: _saving ? null : () => _select(ThemeMode.system),
+            ),
+            _AppearanceOption(
+              key: const ValueKey('appearance-light'),
+              title: '浅色',
+              subtitle: '始终使用浅色外观',
+              icon: Icons.light_mode_outlined,
+              selected: _themeMode == ThemeMode.light,
+              onTap: _saving ? null : () => _select(ThemeMode.light),
+            ),
+            _AppearanceOption(
+              key: const ValueKey('appearance-dark'),
+              title: '深色',
+              subtitle: '始终使用深色外观',
+              icon: Icons.dark_mode_outlined,
+              selected: _themeMode == ThemeMode.dark,
+              onTap: _saving ? null : () => _select(ThemeMode.dark),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _AppearanceOption extends StatelessWidget {
+  const _AppearanceOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: ListTile(
+      minTileHeight: 72,
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: selected
+          ? Icon(
+              Icons.check_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            )
+          : null,
+      onTap: onTap,
+    ),
+  );
+}
+
 class _SettingsDetailPage extends StatefulWidget {
   const _SettingsDetailPage({
     required this.account,
+    required this.themeMode,
     required this.onAccount,
     required this.onPrivacy,
     required this.onLicenses,
     required this.onAbout,
-    required this.onThemeChanged,
+    required this.onAppearance,
   });
 
   final AccountSession? Function() account;
+  final ThemeMode Function() themeMode;
   final Future<void> Function() onAccount;
   final Future<void> Function() onPrivacy;
   final Future<void> Function() onLicenses;
   final Future<void> Function() onAbout;
-  final ValueChanged<ThemeMode> onThemeChanged;
+  final Future<void> Function() onAppearance;
 
   @override
   State<_SettingsDetailPage> createState() => _SettingsDetailPageState();
@@ -770,16 +889,10 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
             _SettingsGroup(
               children: [
                 _SettingsRow(
-                  title: '深色模式',
-                  trailing: Switch(
-                    value: Theme.of(context).brightness == Brightness.dark,
-                    onChanged: (enabled) {
-                      HapticFeedback.selectionClick();
-                      widget.onThemeChanged(
-                        enabled ? ThemeMode.dark : ThemeMode.light,
-                      );
-                    },
-                  ),
+                  key: const ValueKey('appearance-setting'),
+                  title: '外观模式',
+                  value: _themeModeLabel(widget.themeMode()),
+                  onTap: () => _run(widget.onAppearance),
                 ),
                 _SettingsRow(
                   title: '开源许可',
@@ -821,6 +934,12 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
     );
   }
 }
+
+String _themeModeLabel(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => '跟随系统',
+  ThemeMode.light => '浅色',
+  ThemeMode.dark => '深色',
+};
 
 class _SettingsLabel extends StatelessWidget {
   const _SettingsLabel(this.label);
@@ -867,6 +986,7 @@ class _SettingsRow extends StatelessWidget {
     this.value,
     this.onTap,
     this.trailing,
+    super.key,
   });
 
   final String title;

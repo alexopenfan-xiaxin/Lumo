@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'data.dart';
 
@@ -61,10 +60,11 @@ class LumoMark extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: 'Lumo 品牌标志',
     image: true,
-    child: SvgPicture.asset(
-      'assets/icons/lumo_mark.svg',
+    child: Image.asset(
+      'assets/images/lumo_mascot_icon.png',
       width: size,
       height: size,
+      fit: BoxFit.contain,
       excludeFromSemantics: true,
     ),
   );

@@ -16,7 +16,7 @@ class LumoShell extends StatefulWidget {
   });
 
   final ThemeMode themeMode;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final Future<void> Function(ThemeMode) onThemeModeChanged;
   final VoidCallback? onReady;
 
   @override

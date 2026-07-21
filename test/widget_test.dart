@@ -99,19 +99,21 @@ void main() {
     await tester.pumpWidget(const LumoApp(showSplash: false));
     await tester.tap(find.byKey(const ValueKey('dock-个人')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('深色模式'), 160);
-    await tester.drag(
-      find.byKey(const PageStorageKey('profile-scroll')),
-      const Offset(0, -80),
-    );
+    await tester.tap(find.byKey(const ValueKey('appearance-shortcut')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('深色模式'));
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('浅色'), findsOneWidget);
+    expect(find.text('深色'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('appearance-dark')));
     await tester.pumpAndSettle();
-    expect(find.text('浅色模式'), findsOneWidget);
     expect(
-      Theme.of(tester.element(find.text('浅色模式'))).brightness,
+      Theme.of(
+        tester.element(find.byKey(const ValueKey('appearance-dark'))),
+      ).brightness,
       Brightness.dark,
     );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('profile-settings')),
@@ -121,6 +123,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('账号与隐私'), findsOneWidget);
+    expect(find.byKey(const ValueKey('appearance-setting')), findsOneWidget);
+    expect(find.text('深色'), findsOneWidget);
+    await tester.tap(find.text('关于 Lumo'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/lumo_mascot_icon.png',
+      ),
+      findsOneWidget,
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('当前版本：1.3.0'), 200);
     expect(find.text('当前版本：1.3.0'), findsOneWidget);
 
@@ -136,6 +154,13 @@ void main() {
     expect(find.byTooltip('已使用0%\n0k/128k'), findsOneWidget);
     expect(find.text('说说此刻的感受…'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('appearance setting defaults safely to the system mode', () {
+    expect(themeModeFromSetting(null), ThemeMode.system);
+    expect(themeModeFromSetting('unknown'), ThemeMode.system);
+    expect(themeModeFromSetting('light'), ThemeMode.light);
+    expect(themeModeFromSetting('dark'), ThemeMode.dark);
   });
 
   testWidgets('agent messages render Markdown structure', (tester) async {

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'chat_store.dart';
 import 'shell.dart';
 import 'splash_screen.dart';
 import 'theme.dart';
@@ -15,7 +18,10 @@ class LumoApp extends StatefulWidget {
 }
 
 class _LumoAppState extends State<LumoApp> {
-  ThemeMode _themeMode = ThemeMode.light;
+  static const _themeModeKey = 'theme_mode';
+
+  final _store = ChatStore();
+  ThemeMode _themeMode = ThemeMode.system;
   bool _shellReady = false;
   late bool _splashFinished;
 
@@ -23,6 +29,17 @@ class _LumoAppState extends State<LumoApp> {
   void initState() {
     super.initState();
     _splashFinished = !widget.showSplash;
+    unawaited(_loadThemeMode());
+  }
+
+  Future<void> _loadThemeMode() async {
+    final mode = themeModeFromSetting(await _store.setting(_themeModeKey));
+    if (mounted) setState(() => _themeMode = mode);
+  }
+
+  Future<void> _changeThemeMode(ThemeMode mode) async {
+    await _store.saveSetting(_themeModeKey, mode.name);
+    if (mounted) setState(() => _themeMode = mode);
   }
 
   @override
@@ -32,35 +49,43 @@ class _LumoAppState extends State<LumoApp> {
     theme: buildLumoTheme(Brightness.light),
     darkTheme: buildLumoTheme(Brightness.dark),
     themeMode: _themeMode,
-    home: AnnotatedRegion<SystemUiOverlayStyle>(
-      value:
-          (_themeMode == ThemeMode.dark
-                  ? SystemUiOverlayStyle.light
-                  : SystemUiOverlayStyle.dark)
+    home: Builder(
+      builder: (context) {
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
               .copyWith(
                 statusBarColor: Colors.transparent,
-                systemNavigationBarColor: _themeMode == ThemeMode.dark
+                systemNavigationBarColor: dark
                     ? const Color(0xFF171513)
                     : const Color(0xFFF8F5F0),
               ),
-      child: Stack(
-        children: [
-          LumoShell(
-            themeMode: _themeMode,
-            onThemeModeChanged: (mode) => setState(() => _themeMode = mode),
-            onReady: () {
-              if (!_shellReady) setState(() => _shellReady = true);
-            },
-          ),
-          if (!_splashFinished)
-            Positioned.fill(
-              child: LumoSplash(
-                ready: _shellReady,
-                onFinished: () => setState(() => _splashFinished = true),
+          child: Stack(
+            children: [
+              LumoShell(
+                themeMode: _themeMode,
+                onThemeModeChanged: _changeThemeMode,
+                onReady: () {
+                  if (!_shellReady) setState(() => _shellReady = true);
+                },
               ),
-            ),
-        ],
-      ),
+              if (!_splashFinished)
+                Positioned.fill(
+                  child: LumoSplash(
+                    ready: _shellReady,
+                    onFinished: () => setState(() => _splashFinished = true),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     ),
   );
 }
+
+ThemeMode themeModeFromSetting(String? value) => switch (value) {
+  'light' => ThemeMode.light,
+  'dark' => ThemeMode.dark,
+  _ => ThemeMode.system,
+};
