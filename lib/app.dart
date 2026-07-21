@@ -21,6 +21,7 @@ class _LumoAppState extends State<LumoApp> {
   static const _themeModeKey = 'theme_mode';
 
   final _store = ChatStore();
+  late final Future<void> _themeReady;
   ThemeMode _themeMode = ThemeMode.system;
   bool _shellReady = false;
   late bool _splashFinished;
@@ -29,7 +30,8 @@ class _LumoAppState extends State<LumoApp> {
   void initState() {
     super.initState();
     _splashFinished = !widget.showSplash;
-    unawaited(_loadThemeMode());
+    _themeReady = _loadThemeMode();
+    unawaited(_themeReady);
   }
 
   Future<void> _loadThemeMode() async {
@@ -38,6 +40,7 @@ class _LumoAppState extends State<LumoApp> {
   }
 
   Future<void> _changeThemeMode(ThemeMode mode) async {
+    await _themeReady;
     await _store.saveSetting(_themeModeKey, mode.name);
     if (mounted) setState(() => _themeMode = mode);
   }
