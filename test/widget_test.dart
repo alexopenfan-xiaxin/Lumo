@@ -125,6 +125,8 @@ void main() {
     expect(find.text('账号与隐私'), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-setting')), findsOneWidget);
     expect(find.text('深色'), findsOneWidget);
+    await tester.ensureVisible(find.text('关于 Lumo'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('关于 Lumo'));
     await tester.pumpAndSettle();
     expect(
