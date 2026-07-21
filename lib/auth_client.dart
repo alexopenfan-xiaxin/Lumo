@@ -67,28 +67,51 @@ class AuthClient {
 
   Future<void> logout() => _store.saveSetting(_sessionKey, null);
 
-  Future<AccountSession> _authenticate(
-    String path,
-    Map<String, String> body,
-  ) async {
-    final response = await _post(path, body);
+  Future<AccountSession> updateAccount({
+    required String currentPassword,
+    String? username,
+    String? newPassword,
+  }) async {
+    final current = await session();
+    if (current == null) throw const AuthException('请先登录。');
+    final response = await _request('PATCH', '/auth/account', {
+      'currentPassword': currentPassword,
+      if (username != null) 'username': username,
+      if (newPassword != null) 'newPassword': newPassword,
+    }, token: current.token);
     final account = AccountSession.fromJson(response);
     await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
     return account;
   }
 
-  Future<Map<String, dynamic>> _post(
+  Future<AccountSession> _authenticate(
     String path,
     Map<String, String> body,
   ) async {
+    final response = await _request('POST', path, body);
+    final account = AccountSession.fromJson(response);
+    await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
+    return account;
+  }
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path,
+    Map<String, String> body, {
+    String? token,
+  }) async {
     if (_endpoint.isEmpty) throw const AuthException('账号服务还没有部署完成。');
     final endpoint = Uri.parse(_endpoint);
     final client = HttpClient();
     try {
-      final request = await client.postUrl(
+      final request = await client.openUrl(
+        method,
         endpoint.replace(path: path, query: null),
       );
       request.headers.contentType = ContentType.json;
+      if (token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
       request.write(jsonEncode(body));
       final response = await request.close();
       final decoded =
