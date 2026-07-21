@@ -44,55 +44,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _showAccount() async {
     final account = _account;
+    final choice = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => _AccountPage(account: account)),
+    );
+    if (choice == null) return;
     if (account != null) {
-      final logout = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(account.username),
-          content: Text(account.isMember ? '永久会员' : '普通用户 · 每日 100 条消息'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('关闭'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('退出登录'),
-            ),
-          ],
-        ),
-      );
-      if (logout == true) {
+      if (choice) {
         await _authClient.logout();
         if (mounted) setState(() => _account = null);
       }
       return;
     }
-    final register = await showModalBottomSheet<bool>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.login_rounded),
-                title: const Text('登录'),
-                onTap: () => Navigator.pop(context, false),
-              ),
-              ListTile(
-                leading: const Icon(Icons.person_add_alt_rounded),
-                title: const Text('邀请注册'),
-                subtitle: const Text('注册时需要邀请码'),
-                onTap: () => Navigator.pop(context, true),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (register != null) await _authenticate(register: register);
+    await _authenticate(register: choice);
   }
 
   Future<void> _authenticate({required bool register}) async {
@@ -185,50 +148,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (account != null && mounted) setState(() => _account = account);
   }
 
-  Future<void> _showPrivacy() => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('隐私说明'),
-      content: const Text('Lumo 会妥善处理你的账号与对话数据。对话和记忆由你管理，你可以随时删除。'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('知道了'),
-        ),
-      ],
-    ),
-  );
+  Future<void> _showPrivacy() => Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute<void>(builder: (_) => const _PrivacyPage()));
 
-  Future<void> _showLicenses() => showModalBottomSheet<void>(
-    context: context,
-    builder: (context) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('开源许可', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              'Lumo 使用以下开源组件；许可文本由各组件的官方仓库维护。',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            const _LicenseLine(name: 'Flutter / Dart', license: 'BSD 3-Clause'),
-            const _LicenseLine(
-              name: 'flutter_animate、flutter_svg、sqflite',
-              license: 'MIT',
-            ),
-            const _LicenseLine(
-              name: 'path、sqflite_common_ffi',
-              license: 'BSD / MIT',
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+  Future<void> _showLicenses() => Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute<void>(builder: (_) => const _LicensesPage()));
 
   Future<void> _checkForUpdate() async {
     final messenger = ScaffoldMessenger.of(context);
@@ -397,40 +323,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showAbout() => showModalBottomSheet<void>(
-    context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const LumoMark(size: 56),
-            const SizedBox(height: 12),
-            Text('Lumo', style: Theme.of(sheetContext).textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text(
-              appVersionLabel,
-              style: Theme.of(sheetContext).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              minTileHeight: 56,
-              leading: const Icon(Icons.system_update_outlined),
-              title: const Text('检查更新'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _checkForUpdate();
-              },
-            ),
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('© 2026 Lumo contributors'),
-            ),
-          ],
-        ),
-      ),
+  Future<void> _showAbout() => Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => _AboutPage(onCheckForUpdate: _checkForUpdate),
     ),
   );
 
@@ -636,6 +531,177 @@ class _ProfileShortcut extends StatelessWidget {
           ],
         ),
       ),
+    ),
+  );
+}
+
+class _AccountPage extends StatelessWidget {
+  const _AccountPage({required this.account});
+
+  final AccountSession? account;
+
+  @override
+  Widget build(BuildContext context) {
+    final horizontalPadding = lumoHorizontalPadding(context);
+    return LumoSecondaryPage(
+      title: '账号管理',
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          24,
+          horizontalPadding,
+          32,
+        ),
+        children: [
+          const _SettingsLabel('账户'),
+          _SettingsGroup(
+            children: account == null
+                ? [
+                    _SettingsRow(
+                      title: '登录',
+                      onTap: () => Navigator.pop(context, false),
+                    ),
+                    _SettingsRow(
+                      title: '邀请注册',
+                      value: '需要邀请码',
+                      onTap: () => Navigator.pop(context, true),
+                    ),
+                  ]
+                : [
+                    _SettingsRow(title: '账号', value: account!.username),
+                    _SettingsRow(
+                      title: '权益',
+                      value: account!.isMember ? '永久会员' : '每日 100 条消息',
+                    ),
+                  ],
+          ),
+          if (account != null) ...[
+            const SizedBox(height: 28),
+            Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                minTileHeight: 64,
+                title: Text(
+                  '退出登录',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () => Navigator.pop(context, true),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyPage extends StatelessWidget {
+  const _PrivacyPage();
+
+  @override
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: '隐私说明',
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        24,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      children: [
+        Text(
+          'Lumo 会妥善处理你的账号与对话数据。对话和记忆由你管理，你可以随时删除。',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ],
+    ),
+  );
+}
+
+class _LicensesPage extends StatelessWidget {
+  const _LicensesPage();
+
+  @override
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: '开源许可',
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        24,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      children: [
+        Text(
+          'Lumo 使用以下开源组件；许可文本由各组件的官方仓库维护。',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 20),
+        const _SettingsGroup(
+          children: [
+            _LicenseLine(name: 'Flutter / Dart', license: 'BSD 3-Clause'),
+            _LicenseLine(
+              name: 'flutter_animate、flutter_markdown、flutter_svg、sqflite',
+              license: 'MIT / BSD',
+            ),
+            _LicenseLine(name: 'path、sqflite_common_ffi', license: 'BSD / MIT'),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _AboutPage extends StatelessWidget {
+  const _AboutPage({required this.onCheckForUpdate});
+
+  final Future<void> Function() onCheckForUpdate;
+
+  @override
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: '关于 Lumo',
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        32,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      children: [
+        const Center(child: LumoMark(size: 64)),
+        const SizedBox(height: 16),
+        Text(
+          'Lumo',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          appVersionLabel,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 28),
+        _SettingsGroup(
+          children: [
+            _SettingsRow(
+              title: '检查更新',
+              onTap: () {
+                Navigator.pop(context);
+                unawaited(onCheckForUpdate());
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Text(
+          '© 2026 Lumo contributors',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     ),
   );
 }

@@ -20,7 +20,6 @@ void main() {
                 'name': '新伙伴',
                 'glyph': '新',
                 'tagline': '陪你好好说话',
-                'category': 'listener',
                 'color': '#A45F41',
                 'people': '陪伴者',
                 'lastMessage': '最近消息',

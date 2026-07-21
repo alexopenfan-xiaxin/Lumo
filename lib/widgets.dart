@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'data.dart';
@@ -12,6 +13,44 @@ Duration lumoMotionDuration(BuildContext context, [int milliseconds = 240]) =>
     MediaQuery.of(context).disableAnimations
     ? Duration.zero
     : Duration(milliseconds: milliseconds);
+
+class LumoSecondaryPage extends StatelessWidget {
+  const LumoSecondaryPage({
+    required this.title,
+    required this.body,
+    this.actions,
+    super.key,
+  });
+
+  final String title;
+  final Widget body;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      centerTitle: true,
+      title: Text(title, style: Theme.of(context).textTheme.titleLarge),
+      actions: actions,
+    ),
+    body: SafeArea(top: false, child: body),
+  );
+}
+
+class AgentMessageMarkdown extends StatelessWidget {
+  const AgentMessageMarkdown({required this.data, super.key});
+
+  final String data;
+
+  @override
+  Widget build(BuildContext context) => MarkdownBody(
+    data: data,
+    selectable: true,
+    styleSheet: MarkdownStyleSheet.fromTheme(
+      Theme.of(context),
+    ).copyWith(p: Theme.of(context).textTheme.bodyLarge),
+  );
+}
 
 class LumoMark extends StatelessWidget {
   const LumoMark({super.key, this.size = 36});

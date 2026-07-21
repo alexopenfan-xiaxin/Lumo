@@ -17,10 +17,8 @@ class _HomePageState extends State<HomePage> {
 
   void _showNotice(NoticeItem notice) {
     HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _NoticeSheet(notice: notice),
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => _NoticePage(notice: notice)),
     );
   }
 
@@ -259,47 +257,39 @@ class _NoticeCard extends StatelessWidget {
   );
 }
 
-class _NoticeSheet extends StatelessWidget {
-  const _NoticeSheet({required this.notice});
+class _NoticePage extends StatelessWidget {
+  const _NoticePage({required this.notice});
 
   final NoticeItem notice;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: notice.color.withValues(alpha: 0.15),
-              child: Icon(notice.icon, color: notice.color),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              notice.title,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${notice.tag} · ${notice.time}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 18),
-            Text(notice.detail, style: Theme.of(context).textTheme.bodyLarge),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('知道了'),
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: '公告详情',
+    body: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        20,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: notice.color.withValues(alpha: 0.15),
+            child: Icon(notice.icon, color: notice.color),
+          ),
+          const SizedBox(height: 18),
+          Text(notice.title, style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 8),
+          Text(
+            '${notice.tag} · ${notice.time}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 18),
+          Text(notice.detail, style: Theme.of(context).textTheme.bodyLarge),
+        ],
       ),
     ),
   );

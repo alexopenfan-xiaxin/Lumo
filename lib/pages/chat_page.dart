@@ -465,88 +465,73 @@ class _ChatPageState extends State<ChatPage> {
     Future<List<Conversation>> sessions = _store.conversations(
       widget.companion.id,
     );
-    final selected = await showModalBottomSheet<Conversation>(
-      context: context,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: FutureBuilder<List<Conversation>>(
-            future: sessions,
-            builder: (context, snapshot) {
-              final items = snapshot.data ?? const <Conversation>[];
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '会话',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                        FilledButton.icon(
-                          onPressed: () async {
-                            final conversation = await _store
-                                .createConversation(widget.companion.id);
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext, conversation);
-                            }
-                          },
-                          icon: const Icon(Icons.add_comment_outlined),
-                          label: const Text('新建'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (snapshot.connectionState != ConnectionState.done)
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final conversation = items[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                conversation.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                _timeLabel(conversation.updatedAt),
-                              ),
-                              onTap: () =>
-                                  Navigator.pop(sheetContext, conversation),
-                              trailing: IconButton(
-                                tooltip: '删除会话',
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                onPressed: () async {
-                                  await _store.deleteConversation(
-                                    conversation.id,
-                                  );
-                                  setSheetState(
-                                    () => sessions = _store.conversations(
-                                      widget.companion.id,
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
+    final selected = await Navigator.of(context).push<Conversation>(
+      MaterialPageRoute<Conversation>(
+        builder: (pageContext) => StatefulBuilder(
+          builder: (context, setPageState) => LumoSecondaryPage(
+            title: '会话',
+            actions: [
+              IconButton(
+                tooltip: '新建会话',
+                onPressed: () async {
+                  final conversation = await _store.createConversation(
+                    widget.companion.id,
+                  );
+                  if (pageContext.mounted) {
+                    Navigator.pop(pageContext, conversation);
+                  }
+                },
+                icon: const Icon(Icons.add_comment_outlined),
+              ),
+            ],
+            body: FutureBuilder<List<Conversation>>(
+              future: sessions,
+              builder: (context, snapshot) {
+                final items = snapshot.data ?? const <Conversation>[];
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (items.isEmpty) return const Center(child: Text('暂无会话'));
+                return ListView.separated(
+                  padding: EdgeInsets.fromLTRB(
+                    lumoHorizontalPadding(context),
+                    12,
+                    lumoHorizontalPadding(context),
+                    32,
+                  ),
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final conversation = items[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        conversation.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
-              );
-            },
+                      subtitle: Text(_timeLabel(conversation.updatedAt)),
+                      onTap: () => Navigator.pop(pageContext, conversation),
+                      trailing: IconButton(
+                        tooltip: '删除会话',
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        onPressed: () async {
+                          if (!await _confirm('删除会话？', '这段会话及其中的消息都会永久删除。')) {
+                            return;
+                          }
+                          await _store.deleteConversation(conversation.id);
+                          setPageState(
+                            () => sessions = _store.conversations(
+                              widget.companion.id,
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -558,138 +543,135 @@ class _ChatPageState extends State<ChatPage> {
     Future<List<MemoryEntry>> memoryFuture = _store.memories(
       widget.companion.id,
     );
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: FractionallySizedBox(
-            heightFactor: 0.78,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: FutureBuilder<List<MemoryEntry>>(
-                future: memoryFuture,
-                builder: (context, snapshot) {
-                  final memories = snapshot.data ?? const <MemoryEntry>[];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${widget.companion.name}的记忆',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: '清空全部记忆',
-                            onPressed: memories.isEmpty
-                                ? null
-                                : () async {
-                                    if (!await _confirm(
-                                      '清空全部记忆？',
-                                      '已确认和待确认的记忆都会永久删除。',
-                                    )) {
-                                      return;
-                                    }
-                                    await _store.clearMemories(
-                                      widget.companion.id,
-                                    );
-                                    setSheetState(
-                                      () => memoryFuture = _store.memories(
-                                        widget.companion.id,
-                                      ),
-                                    );
-                                    if (mounted) {
-                                      setState(
-                                        () => _pendingMemories = const [],
-                                      );
-                                    }
-                                  },
-                            icon: const Icon(Icons.delete_sweep_outlined),
-                          ),
-                        ],
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => StatefulBuilder(
+          builder: (context, setPageState) => FutureBuilder<List<MemoryEntry>>(
+            future: memoryFuture,
+            builder: (context, snapshot) {
+              final memories = snapshot.data ?? const <MemoryEntry>[];
+              return LumoSecondaryPage(
+                title: '${widget.companion.name}的记忆',
+                actions: [
+                  IconButton(
+                    tooltip: '清空全部记忆',
+                    onPressed: memories.isEmpty
+                        ? null
+                        : () async {
+                            if (!await _confirm(
+                              '清空全部记忆？',
+                              '已确认和待确认的记忆都会永久删除。',
+                            )) {
+                              return;
+                            }
+                            await _store.clearMemories(widget.companion.id);
+                            setPageState(
+                              () => memoryFuture = _store.memories(
+                                widget.companion.id,
+                              ),
+                            );
+                            if (mounted) {
+                              setState(() => _pendingMemories = const []);
+                            }
+                          },
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                  ),
+                ],
+                body: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        lumoHorizontalPadding(context),
+                        12,
+                        lumoHorizontalPadding(context),
+                        8,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '只有确认后的内容会在后续对话中使用。',
-                        style: Theme.of(context).textTheme.bodySmall,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '只有确认后的内容会在后续对话中使用。',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: memories.length,
-                          separatorBuilder: (_, index) => const Divider(),
-                          itemBuilder: (context, index) {
-                            final memory = memories[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(memory.content),
-                              subtitle: Text(_memoryLabel(memory.status)),
-                              trailing: Wrap(
-                                spacing: 2,
-                                children: [
-                                  if (memory.status == MemoryStatus.pending)
-                                    IconButton(
-                                      tooltip: '确认记忆',
-                                      onPressed: () async {
-                                        await _store.updateMemory(
-                                          memory.copyWith(
-                                            status: MemoryStatus.approved,
-                                          ),
-                                        );
-                                        setSheetState(
-                                          () => memoryFuture = _store.memories(
-                                            widget.companion.id,
-                                          ),
-                                        );
-                                        _refreshPendingMemories();
-                                      },
-                                      icon: const Icon(Icons.check_rounded),
-                                    ),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: EdgeInsets.fromLTRB(
+                          lumoHorizontalPadding(context),
+                          0,
+                          lumoHorizontalPadding(context),
+                          32,
+                        ),
+                        itemCount: memories.length,
+                        separatorBuilder: (_, index) => const Divider(),
+                        itemBuilder: (context, index) {
+                          final memory = memories[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(memory.content),
+                            subtitle: Text(_memoryLabel(memory.status)),
+                            trailing: Wrap(
+                              spacing: 2,
+                              children: [
+                                if (memory.status == MemoryStatus.pending)
                                   IconButton(
-                                    tooltip: '编辑记忆',
+                                    tooltip: '确认记忆',
                                     onPressed: () async {
-                                      final edited = await _editMemory(
-                                        memory.content,
-                                      );
-                                      if (edited == null) return;
                                       await _store.updateMemory(
-                                        memory.copyWith(content: edited),
-                                      );
-                                      setSheetState(
-                                        () => memoryFuture = _store.memories(
-                                          widget.companion.id,
+                                        memory.copyWith(
+                                          status: MemoryStatus.approved,
                                         ),
                                       );
-                                    },
-                                    icon: const Icon(Icons.edit_outlined),
-                                  ),
-                                  IconButton(
-                                    tooltip: '删除记忆',
-                                    onPressed: () async {
-                                      await _store.deleteMemory(memory.id);
-                                      setSheetState(
+                                      setPageState(
                                         () => memoryFuture = _store.memories(
                                           widget.companion.id,
                                         ),
                                       );
                                       _refreshPendingMemories();
                                     },
-                                    icon: const Icon(Icons.close_rounded),
+                                    icon: const Icon(Icons.check_rounded),
                                   ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                IconButton(
+                                  tooltip: '编辑记忆',
+                                  onPressed: () async {
+                                    final edited = await _editMemory(
+                                      memory.content,
+                                    );
+                                    if (edited == null) return;
+                                    await _store.updateMemory(
+                                      memory.copyWith(content: edited),
+                                    );
+                                    setPageState(
+                                      () => memoryFuture = _store.memories(
+                                        widget.companion.id,
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.edit_outlined),
+                                ),
+                                IconButton(
+                                  tooltip: '删除记忆',
+                                  onPressed: () async {
+                                    await _store.deleteMemory(memory.id);
+                                    setPageState(
+                                      () => memoryFuture = _store.memories(
+                                        widget.companion.id,
+                                      ),
+                                    );
+                                    _refreshPendingMemories();
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -803,6 +785,10 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
     final messageDuration = lumoMotionDuration(context, 220);
+    final contextPercent = (_contextUsage / maxDynamicContextTokens * 100)
+        .round();
+    final contextLabel =
+        '已使用$contextPercent%\n${(_contextUsage / 1000).round()}k/128k';
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -832,11 +818,9 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           if (widget.companion.isAvailable)
             Tooltip(
-              message:
-                  '上下文已使用 ${(_contextUsage / maxDynamicContextTokens * 100).round()}%',
+              message: contextLabel,
               child: Semantics(
-                label:
-                    '上下文已使用 ${(_contextUsage / maxDynamicContextTokens * 100).round()}%',
+                label: contextLabel,
                 child: SizedBox.square(
                   dimension: 48,
                   child: Center(
@@ -1134,14 +1118,15 @@ class _MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (message.text.isNotEmpty)
-            Text(
-              message.text,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: message.fromUser
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : null,
-              ),
-            ),
+            if (message.fromUser)
+              Text(
+                message.text,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              )
+            else
+              AgentMessageMarkdown(data: message.text),
           if (message.imagePath.isNotEmpty) ...[
             if (message.text.isNotEmpty) const SizedBox(height: 10),
             ClipRRect(

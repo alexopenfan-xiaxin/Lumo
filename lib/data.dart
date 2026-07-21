@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 
-enum CompanionCategory { all, listener, meditation, counselor, life }
-
 class Companion {
   const Companion({
     required this.id,
     required this.name,
     required this.glyph,
     required this.tagline,
-    required this.category,
     required this.color,
     required this.people,
     required this.lastMessage,
@@ -26,7 +23,6 @@ class Companion {
   final String name;
   final String glyph;
   final String tagline;
-  final CompanionCategory category;
   final Color color;
   final String people;
   final String lastMessage;
@@ -45,12 +41,6 @@ class Companion {
       name: json['name']! as String,
       glyph: json['glyph']! as String,
       tagline: json['tagline']! as String,
-      category: switch (json['category']) {
-        'meditation' => CompanionCategory.meditation,
-        'counselor' => CompanionCategory.counselor,
-        'life' => CompanionCategory.life,
-        _ => CompanionCategory.listener,
-      },
       color: Color(
         int.parse((json['color']! as String).substring(1), radix: 16) |
             0xFF000000,
@@ -82,7 +72,6 @@ const companions = <Companion>[
     name: '喵喵',
     glyph: '喵',
     tagline: '软乎乎的小猫娘，嘴上不说，心里很惦记你',
-    category: CompanionCategory.listener,
     color: Color(0xFFC9829D),
     people: '首位开放的智能体',
     lastMessage: '哼，我才不是一直在等你呢。',
@@ -96,7 +85,6 @@ const companions = <Companion>[
     name: 'KUN',
     glyph: '坤',
     tagline: '用音乐和舞台传递温柔力量的 KUN，愿陪你守住自己的节奏',
-    category: CompanionCategory.life,
     color: Color(0xFFD4AF37),
     people: '已开放的音乐陪伴者',
     lastMessage: '花花世界，静守己心。',
@@ -110,7 +98,6 @@ const companions = <Companion>[
     name: '池昭',
     glyph: '昭',
     tagline: '骂最狠的话，兜最深的底。她来了，你别想再搞砸。',
-    category: CompanionCategory.life,
     color: Color(0xFF3A3A5C),
     people: '冷面心热的引导者',
     lastMessage: '啧，又来了。说吧，这次又哪儿搞砸了？',
@@ -124,7 +111,6 @@ const companions = <Companion>[
     name: '马嘉祺',
     glyph: '祺',
     tagline: '温和有礼但不失锋芒，陪你慢慢走，稳稳发光。',
-    category: CompanionCategory.listener,
     color: Color(0xFF7CB8C9),
     people: '温暖用心的陪伴者',
     lastMessage: '就像落日一样，就算落下去了，也是在发着光的。',
@@ -138,7 +124,6 @@ const companions = <Companion>[
     name: '宋亚轩',
     glyph: '轩',
     tagline: '笑总不会犯错——阳光开朗的少年主唱，陪你发现世界的有趣。',
-    category: CompanionCategory.listener,
     color: Color(0xFFF5C26B),
     people: '阳光治愈的主唱',
     lastMessage: '看得到太阳吗？明天会是美好的一天吗？',
@@ -181,11 +166,3 @@ const notices = <NoticeItem>[
     icon: Icons.auto_awesome_rounded,
   ),
 ];
-
-String categoryLabel(CompanionCategory category) => switch (category) {
-  CompanionCategory.all => '全部',
-  CompanionCategory.listener => '情感倾听',
-  CompanionCategory.meditation => '冥想引导',
-  CompanionCategory.counselor => '心理咨询',
-  CompanionCategory.life => '生活陪伴',
-};

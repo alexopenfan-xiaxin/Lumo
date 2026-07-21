@@ -74,17 +74,9 @@ void main() {
 
       await tester.tap(find.text(notices.first.title));
       await tester.pumpAndSettle();
-      expect(find.text('知道了'), findsOneWidget);
+      expect(find.text('公告详情'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.scrollUntilVisible(
-        find.text('知道了'),
-        240,
-        scrollable: find.descendant(
-          of: find.byType(SingleChildScrollView),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.text('知道了'));
+      await tester.pageBack();
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('dock-探索')));
@@ -141,8 +133,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byTooltip('切换到语音输入'), findsOneWidget);
     expect(find.byTooltip('发送'), findsOneWidget);
+    expect(find.byTooltip('已使用0%\n0k/128k'), findsOneWidget);
     expect(find.text('说说此刻的感受…'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('agent messages render Markdown structure', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildLumoTheme(Brightness.light),
+        home: const Scaffold(
+          body: AgentMessageMarkdown(data: '# 标题\n\n- 第一项\n- 第二项'),
+        ),
+      ),
+    );
+
+    expect(find.text('标题'), findsOneWidget);
+    expect(find.text('第一项'), findsOneWidget);
+    expect(find.text('第二项'), findsOneWidget);
   });
 
   testWidgets('shared motion honors reduced motion', (tester) async {

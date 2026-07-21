@@ -37,7 +37,6 @@ CREATE TABLE agents (
   name TEXT NOT NULL,
   glyph TEXT NOT NULL,
   tagline TEXT NOT NULL,
-  category TEXT NOT NULL,
   color TEXT NOT NULL,
   people TEXT NOT NULL,
   last_message TEXT NOT NULL,

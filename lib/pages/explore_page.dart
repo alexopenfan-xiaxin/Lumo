@@ -26,15 +26,18 @@ class ExplorePage extends StatelessWidget {
   }
 
   void _showDetails(BuildContext context, Companion companion) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (pageContext) => LumoSecondaryPage(
+          title: companion.name,
+          body: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              lumoHorizontalPadding(pageContext),
+              20,
+              lumoHorizontalPadding(pageContext),
+              32,
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
@@ -50,30 +53,19 @@ class ExplorePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        companion.name,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
                 Text(
-                  categoryLabel(companion.category),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  companion.name,
+                  style: Theme.of(pageContext).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   companion.tagline,
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: Theme.of(pageContext).textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 10),
                 Text(
                   companion.people,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(pageContext).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -81,7 +73,7 @@ class ExplorePage extends StatelessWidget {
                   child: FilledButton(
                     onPressed: companion.isAvailable
                         ? () {
-                            Navigator.pop(sheetContext);
+                            Navigator.pop(pageContext);
                             _openChat(context, companion);
                           }
                         : null,
@@ -176,16 +168,7 @@ class _ExploreCard extends StatelessWidget {
               aspectRatio: 3 / 4,
               child: Stack(
                 fit: StackFit.expand,
-                children: [
-                  _CompanionCover(companion: companion),
-                  Positioned(
-                    left: 10,
-                    top: 10,
-                    child: _CoverLabel(
-                      label: categoryLabel(companion.category),
-                    ),
-                  ),
-                ],
+                children: [_CompanionCover(companion: companion)],
               ),
             ),
           ),
@@ -258,31 +241,6 @@ class _CompanionCover extends StatelessWidget {
     'songyaxuan' => const Alignment(0, -0.2),
     _ => const Alignment(0, -0.15),
   };
-}
-
-class _CoverLabel extends StatelessWidget {
-  const _CoverLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.58),
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    ),
-  );
 }
 
 class _ExploreEmpty extends StatelessWidget {
