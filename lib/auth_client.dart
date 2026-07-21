@@ -76,8 +76,8 @@ class AuthClient {
     if (current == null) throw const AuthException('请先登录。');
     final response = await _request('PATCH', '/auth/account', {
       'currentPassword': currentPassword,
-      if (username != null) 'username': username,
-      if (newPassword != null) 'newPassword': newPassword,
+      'username': ?username,
+      'newPassword': ?newPassword,
     }, token: current.token);
     final account = AccountSession.fromJson(response);
     await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
