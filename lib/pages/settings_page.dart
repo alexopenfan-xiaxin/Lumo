@@ -981,18 +981,11 @@ class _SettingsGroup extends StatelessWidget {
 }
 
 class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.title,
-    this.value,
-    this.onTap,
-    this.trailing,
-    super.key,
-  });
+  const _SettingsRow({required this.title, this.value, this.onTap, super.key});
 
   final String title;
   final String? value;
   final VoidCallback? onTap;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -1003,29 +996,27 @@ class _SettingsRow extends StatelessWidget {
         context,
       ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
     ),
-    trailing:
-        trailing ??
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (value != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 128),
-                child: Text(
-                  value!,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            if (onTap != null) const SizedBox(width: 6),
-            if (onTap != null)
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-          ],
-        ),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (value != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 128),
+            child: Text(
+              value!,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (onTap != null) const SizedBox(width: 6),
+        if (onTap != null)
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 22,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+      ],
+    ),
     onTap: onTap,
   );
 }
