@@ -44,18 +44,67 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _showAccount() async {
     final account = _account;
-    final choice = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => _AccountPage(account: account)),
+    final action = await Navigator.of(context).push<_AccountAction>(
+      MaterialPageRoute<_AccountAction>(
+        builder: (_) => _AccountPage(account: account),
+      ),
     );
-    if (choice == null) return;
-    if (account != null) {
-      if (choice) {
-        await _authClient.logout();
-        if (mounted) setState(() => _account = null);
-      }
-      return;
+    if (action == null) return;
+    switch (action) {
+      case _AccountAction.login:
+        await _authenticate(register: false);
+      case _AccountAction.register:
+        await _authenticate(register: true);
+      case _AccountAction.rename:
+        await _editAccount(changePassword: false);
+      case _AccountAction.changePassword:
+        await _editAccount(changePassword: true);
+      case _AccountAction.logout:
+        await _logout();
     }
-    await _authenticate(register: choice);
+  }
+
+  Future<void> _editAccount({required bool changePassword}) async {
+    final account = _account;
+    if (account == null) return;
+    final updated = await Navigator.of(context).push<AccountSession>(
+      MaterialPageRoute<AccountSession>(
+        builder: (_) => _AccountEditPage(
+          account: account,
+          changePassword: changePassword,
+          onSubmit: ({required currentPassword, username, newPassword}) =>
+              _authClient.updateAccount(
+                currentPassword: currentPassword,
+                username: username,
+                newPassword: newPassword,
+              ),
+        ),
+      ),
+    );
+    if (updated != null && mounted) setState(() => _account = updated);
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('退出登录？'),
+        content: const Text('退出后，仍可重新登录此账号。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('退出登录'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _authClient.logout();
+    if (mounted) setState(() => _account = null);
   }
 
   Future<void> _authenticate({required bool register}) async {
@@ -345,6 +394,7 @@ class _ProfilePageState extends State<ProfilePage> {
           account: () => _account,
           themeMode: () => widget.themeMode,
           onAccount: _showAccount,
+          onLogout: _logout,
           onPrivacy: _showPrivacy,
           onLicenses: _showLicenses,
           onAbout: _showAbout,
@@ -538,6 +588,8 @@ class _ProfileShortcut extends StatelessWidget {
   );
 }
 
+enum _AccountAction { login, register, rename, changePassword, logout }
+
 class _AccountPage extends StatelessWidget {
   const _AccountPage({required this.account});
 
@@ -562,16 +614,27 @@ class _AccountPage extends StatelessWidget {
                 ? [
                     _SettingsRow(
                       title: '登录',
-                      onTap: () => Navigator.pop(context, false),
+                      onTap: () => Navigator.pop(context, _AccountAction.login),
                     ),
                     _SettingsRow(
                       title: '邀请注册',
                       value: '需要邀请码',
-                      onTap: () => Navigator.pop(context, true),
+                      onTap: () =>
+                          Navigator.pop(context, _AccountAction.register),
                     ),
                   ]
                 : [
                     _SettingsRow(title: '账号', value: account!.username),
+                    _SettingsRow(
+                      title: '修改名称',
+                      onTap: () =>
+                          Navigator.pop(context, _AccountAction.rename),
+                    ),
+                    _SettingsRow(
+                      title: '修改密码',
+                      onTap: () =>
+                          Navigator.pop(context, _AccountAction.changePassword),
+                    ),
                     _SettingsRow(
                       title: '权益',
                       value: account!.isMember ? '永久会员' : '每日 100 条消息',
@@ -590,7 +653,7 @@ class _AccountPage extends StatelessWidget {
                   '退出登录',
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                onTap: () => Navigator.pop(context, true),
+                onTap: () => Navigator.pop(context, _AccountAction.logout),
               ),
             ),
           ],
@@ -598,6 +661,139 @@ class _AccountPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AccountEditPage extends StatefulWidget {
+  const _AccountEditPage({
+    required this.account,
+    required this.changePassword,
+    required this.onSubmit,
+  });
+
+  final AccountSession account;
+  final bool changePassword;
+  final Future<AccountSession> Function({
+    required String currentPassword,
+    String? username,
+    String? newPassword,
+  })
+  onSubmit;
+
+  @override
+  State<_AccountEditPage> createState() => _AccountEditPageState();
+}
+
+class _AccountEditPageState extends State<_AccountEditPage> {
+  late final _username = TextEditingController(text: widget.account.username);
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final username = _username.text.trim();
+    if (!widget.changePassword &&
+        !RegExp(r'^[a-zA-Z0-9_]{3,24}$').hasMatch(username)) {
+      setState(() => _error = '名称需为 3–24 位字母、数字或下划线。');
+      return;
+    }
+    if (widget.changePassword && _newPassword.text.length < 8) {
+      setState(() => _error = '新密码至少需要 8 位。');
+      return;
+    }
+    if (widget.changePassword && _newPassword.text != _confirmPassword.text) {
+      setState(() => _error = '两次输入的新密码不一致。');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final updated = await widget.onSubmit(
+        currentPassword: _currentPassword.text,
+        username: widget.changePassword ? null : username,
+        newPassword: widget.changePassword ? _newPassword.text : null,
+      );
+      if (mounted) Navigator.pop(context, updated);
+    } on AuthException catch (exception) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = exception.message;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => LumoSecondaryPage(
+    title: widget.changePassword ? '修改密码' : '修改名称',
+    body: ListView(
+      padding: EdgeInsets.fromLTRB(
+        lumoHorizontalPadding(context),
+        24,
+        lumoHorizontalPadding(context),
+        32,
+      ),
+      children: [
+        if (!widget.changePassword)
+          TextField(
+            key: const ValueKey('account-name'),
+            controller: _username,
+            enabled: !_saving,
+            maxLength: 24,
+            decoration: const InputDecoration(labelText: '新名称'),
+          ),
+        TextField(
+          key: const ValueKey('current-password'),
+          controller: _currentPassword,
+          enabled: !_saving,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: '当前密码'),
+        ),
+        if (widget.changePassword) ...[
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('new-password'),
+            controller: _newPassword,
+            enabled: !_saving,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: '新密码'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirmPassword,
+            enabled: !_saving,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: '确认新密码'),
+          ),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: Text(_saving ? '保存中…' : '保存'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PrivacyPage extends StatelessWidget {
@@ -828,6 +1024,7 @@ class _SettingsDetailPage extends StatefulWidget {
     required this.account,
     required this.themeMode,
     required this.onAccount,
+    required this.onLogout,
     required this.onPrivacy,
     required this.onLicenses,
     required this.onAbout,
@@ -837,6 +1034,7 @@ class _SettingsDetailPage extends StatefulWidget {
   final AccountSession? Function() account;
   final ThemeMode Function() themeMode;
   final Future<void> Function() onAccount;
+  final Future<void> Function() onLogout;
   final Future<void> Function() onPrivacy;
   final Future<void> Function() onLicenses;
   final Future<void> Function() onAbout;
@@ -910,8 +1108,9 @@ class _SettingsDetailPageState extends State<_SettingsDetailPage> {
               _SettingsGroup(
                 children: [
                   _SettingsRow(
+                    key: const ValueKey('logout-setting'),
                     title: '退出登录',
-                    onTap: () => _run(widget.onAccount),
+                    onTap: () => _run(widget.onLogout),
                   ),
                 ],
               ),
