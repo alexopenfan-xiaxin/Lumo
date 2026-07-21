@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {chatMessages, completionOptions, explicitlyRequestsImage, imageGenerationTool, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {chatMessages, completionOptions, explicitlyRequestsImage, imageGenerationTool, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, updateAccount, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
 assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
@@ -58,3 +58,58 @@ assert.equal(prompts[1].content, '专属身份');
 assert.deepEqual(prompts[2], {role: 'user', content: '你好'});
 assert.equal(parseAgentDraft(JSON.stringify(agent), 8).sortOrder, 8);
 assert.equal(parseAgentDraft('{"name":"少字段"}', 0), null);
+
+const testPasswordHash = async (password, salt) => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+  return Buffer.from(await crypto.subtle.deriveBits({name: 'PBKDF2', hash: 'SHA-256', salt: encoder.encode(salt), iterations: 100000}, key, 256)).toString('hex');
+};
+const account = {
+  id: 'account-1', username: 'old_name', password_salt: 'salt',
+  password_hash: await testPasswordHash('old-password', 'salt'), is_member: 0, role: 'user',
+};
+const accountEnv = (existingUsername = null) => {
+  const batches = [];
+  const runs = [];
+  const DB = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return {
+            first: async () => sql === 'SELECT * FROM accounts WHERE id = ?' ? account : existingUsername,
+            run: async () => runs.push({sql, args}),
+            sql, args,
+          };
+        },
+      };
+    },
+    batch: async (statements) => batches.push(statements),
+  };
+  return {DB, batches, runs};
+};
+const patchRequest = (body) => new Request('https://lumo.test/auth/account', {
+  method: 'PATCH', headers: {'content-type': 'application/json'}, body: JSON.stringify(body),
+});
+
+let response = await updateAccount(patchRequest({currentPassword: 'old-password', username: 'new_name'}), accountEnv(), null);
+assert.equal(response.status, 401);
+response = await updateAccount(patchRequest({currentPassword: 'wrong-password', username: 'new_name'}), accountEnv(), account);
+assert.equal(response.status, 401);
+response = await updateAccount(patchRequest({currentPassword: 'old-password'}), accountEnv(), account);
+assert.equal(response.status, 400);
+response = await updateAccount(patchRequest({currentPassword: 'old-password', newPassword: 'short'}), accountEnv(), account);
+assert.equal(response.status, 400);
+response = await updateAccount(patchRequest({currentPassword: 'old-password', username: 'new_name'}), accountEnv({id: 'other'}), account);
+assert.equal(response.status, 409);
+const renamed = accountEnv();
+response = await updateAccount(patchRequest({currentPassword: 'old-password', username: 'New_Name'}), renamed, account);
+assert.equal(response.status, 200);
+assert.equal((await response.json()).username, 'new_name');
+assert.match(renamed.batches[0][1].sql, /DELETE FROM sessions/);
+assert.match(renamed.runs[0].sql, /INSERT INTO sessions/);
+const passwordChanged = accountEnv();
+response = await updateAccount(patchRequest({currentPassword: 'old-password', newPassword: 'new-password'}), passwordChanged, account);
+assert.equal(response.status, 200);
+assert.notEqual(passwordChanged.batches[0][0].args[1], account.password_hash);
+assert.ok(contract.paths['/auth/account'].patch);
+assert.deepEqual(contract.components.schemas.AccountUpdate.required, ['currentPassword']);
