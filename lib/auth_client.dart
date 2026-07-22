@@ -54,7 +54,7 @@ class AuthClient {
         (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
       ).join();
     }
-    final validGuestId = guestId!;
+    final validGuestId = guestId;
     if (validGuestId != storedGuestId) {
       await _store.saveSetting(_guestKey, validGuestId);
     }
