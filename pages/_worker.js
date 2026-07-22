@@ -841,10 +841,14 @@ const createOrder = async (request, env, account) => {
   if (!account) return json({error: '登录已过期。'}, 401);
   const info = await membershipInfo(env, account);
   if (info.isMember) return json({error: '您已是会员'}, 409);
+  const body = await readBody(request);
+  const isTest = body?.test === true;
+  const price = isTest ? 0.01 : membershipProduct.price;
+  const productName = isTest ? `${membershipProduct.name}（测试）` : membershipProduct.name;
   try {
     const pending = await env.KV.get(`order:pending:${account.id}`, 'json');
     if (pending && typeof pending.trade_no === 'string' && typeof pending.qrcode === 'string') {
-      return json({qrcode: pending.qrcode, trade_no: pending.trade_no});
+      return json({qrcode: pending.qrcode, trade_no: pending.trade_no, test: isTest});
     }
   } catch { /* KV miss */ }
   if (!env.YIPAY_PID || !env.YIPAY_KEY || !env.YIPAY_ENDPOINT) return json({error: '支付服务未配置。'}, 503);
@@ -857,8 +861,8 @@ const createOrder = async (request, env, account) => {
     out_trade_no: outTradeNo,
     notify_url: `${origin}/notify`,
     return_url: `${origin}/`,
-    name: membershipProduct.name,
-    money: membershipProduct.price,
+    name: productName,
+    money: price,
     sitename: 'Lumo',
     clientip: '0.0.0.0',
   };
@@ -884,12 +888,12 @@ const createOrder = async (request, env, account) => {
   }
 
   const now = Date.now();
-  const order = {status: 'pending', pid: env.YIPAY_PID, type: 'alipay', money: membershipProduct.price, out_trade_no: outTradeNo, account_id: account.id, created_at: now};
+  const order = {status: 'pending', pid: env.YIPAY_PID, type: 'alipay', money: price, out_trade_no: outTradeNo, account_id: account.id, username: account.username, test: isTest, created_at: now};
   try {
     await env.KV.put(`order:${outTradeNo}`, JSON.stringify(order));
     await env.KV.put(`order:pending:${account.id}`, JSON.stringify({trade_no: outTradeNo, qrcode: data.qrcode, created_at: now}), {expirationTtl: 300});
   } catch { /* best-effort; order still usable, callback will reconcile */ }
-  return json({qrcode: data.qrcode, trade_no: outTradeNo});
+  return json({qrcode: data.qrcode, trade_no: outTradeNo, test: isTest});
 };
 
 const plainText = (body, status = 200) => new Response(body, {status, headers: {'Content-Type': 'text/plain; charset=utf-8'}});
@@ -931,13 +935,29 @@ const getMembership = async (request, env, account) => {
   return json(await membershipInfo(env, account));
 };
 
+// ponytail: batch username lookup from D1; falls back to account_id if DB miss.
+// Upgrade path: denormalize username into order at write time (already done for new orders).
+export const enrichWithUsername = async (env, orders) => {
+  const ids = [...new Set(orders.map((o) => o.account_id).filter((id) => Number.isInteger(id)))];
+  if (!ids.length) return orders;
+  try {
+    const placeholders = ids.map(() => '?').join(',');
+    const result = await env.DB.prepare(`SELECT id, username FROM accounts WHERE id IN (${placeholders})`).bind(...ids).all();
+    const map = new Map((result.results ?? []).map((r) => [r.id, r.username]));
+    return orders.map((o) => ({...o, username: o.username ?? map.get(o.account_id) ?? null}));
+  } catch {
+    return orders;
+  }
+};
+
 const adminOrders = async (request, env, account, tradeNo) => {
   if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
   if (tradeNo) {
     try {
       const order = await env.KV.get(`order:${tradeNo}`, 'json');
       if (!order) return json({error: '订单不存在'}, 404);
-      return json({key: tradeNo, ...order});
+      const enriched = await enrichWithUsername(env, [order]);
+      return json({key: tradeNo, ...enriched[0]});
     } catch {
       return json({error: '订单不存在'}, 404);
     }
@@ -965,7 +985,24 @@ const adminOrders = async (request, env, account, tradeNo) => {
       return val ? {key: key.replace('order:', ''), ...val} : null;
     }),
   )).filter(Boolean);
-  return json({orders, total: keys.length, page, perPage, totalPages: Math.ceil(keys.length / perPage) || 0});
+  const enriched = await enrichWithUsername(env, orders);
+  return json({orders: enriched, total: keys.length, page, perPage, totalPages: Math.ceil(keys.length / perPage) || 0});
+};
+
+export const deleteOrder = async (request, env, account, tradeNo) => {
+  if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
+  if (!tradeNo) return json({error: '缺少订单号。'}, 400);
+  try {
+    const order = await env.KV.get(`order:${tradeNo}`, 'json');
+    if (!order) return json({error: '订单不存在'}, 404);
+    await env.KV.delete(`order:${tradeNo}`);
+    if (order.account_id != null) {
+      try { await env.KV.delete(`order:pending:${order.account_id}`); } catch { /* best-effort */ }
+    }
+    return json({ok: true});
+  } catch {
+    return json({error: '订单不存在'}, 404);
+  }
 };
 
 const parseCandidates = (text) => {
@@ -995,8 +1032,13 @@ export default {
     if (request.method === 'POST' && url.pathname === '/create-order') return createOrder(request, env, await authenticate(request, env));
     if (request.method === 'POST' && url.pathname === '/notify') return notifyCallback(request, env);
     if (request.method === 'GET' && url.pathname === '/membership') return getMembership(request, env, await authenticate(request, env));
-    const adminOrderMatch = request.method === 'GET' && url.pathname.match(/^\/admin\/orders(?:\/([^/]+))?$/);
-    if (adminOrderMatch) return adminOrders(request, env, await authenticate(request, env), adminOrderMatch[1]);
+    const adminOrderMatch = url.pathname.match(/^\/admin\/orders(?:\/([^/]+))?$/);
+    if (adminOrderMatch) {
+      const acc = await authenticate(request, env);
+      if (request.method === 'GET') return adminOrders(request, env, acc, adminOrderMatch[1]);
+      if (request.method === 'DELETE') return deleteOrder(request, env, acc, adminOrderMatch[1]);
+      return json({error: 'Method not allowed'}, 405);
+    }
     if (request.method === 'GET' && url.pathname === '/agents') return json({agents: (await loadAgents(env)).filter((agent) => agent.enabled).map(publicAgent)});
     const agentMatch = url.pathname.match(/^\/admin\/agents(?:\/([a-z0-9_-]{2,32}))?$/);
     if (agentMatch && (request.method === 'GET' || request.method === 'PUT' || request.method === 'DELETE')) {

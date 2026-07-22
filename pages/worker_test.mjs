@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {buildEpaySign, chatMessages, completionOptions, computeMemberExpiry, explicitlyRequestsImage, imageGenerationTool, parseAccountId, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, updateAccount, validAgent, validImageSize, validImageUpload, validInviteCount, validMessages, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {buildEpaySign, chatMessages, completionOptions, computeMemberExpiry, deleteOrder, enrichWithUsername, explicitlyRequestsImage, imageGenerationTool, parseAccountId, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, updateAccount, validAgent, validImageSize, validImageUpload, validInviteCount, validMessages, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 // Reference MD5 oracle: node's crypto. Used to assert our pure-JS impl matches.
 const md5Hex = (str) => createHash('md5').update(str, 'utf8').digest('hex');
@@ -79,6 +79,7 @@ assert.ok(contract.paths['/notify'].post, 'openapi: missing POST /notify');
 assert.ok(contract.paths['/membership'].get, 'openapi: missing GET /membership');
 assert.ok(contract.paths['/admin/orders'].get, 'openapi: missing GET /admin/orders');
 assert.ok(contract.paths['/admin/orders/{trade_no}'].get, 'openapi: missing GET /admin/orders/{trade_no}');
+assert.ok(contract.paths['/admin/orders/{trade_no}'].delete, 'openapi: missing DELETE /admin/orders/{trade_no}');
 assert.equal(contract.components.schemas.Membership.required.includes('isMember'), true);
 
 const agent = {
@@ -181,3 +182,48 @@ assert.equal(response.status, 200);
 assert.notEqual(passwordChanged.batches[0][0].args[1], account.password_hash);
 assert.ok(contract.paths['/auth/account'].patch);
 assert.deepEqual(contract.components.schemas.AccountUpdate.required, ['currentPassword']);
+
+// enrichWithUsername: D1 batch lookup joins username onto orders; falls back gracefully.
+const d1Stub = (rows) => ({
+  prepare(sql) {
+    return {
+      bind(...args) {
+        return {
+          all: async () => ({results: rows.filter((r) => args.includes(r.id))}),
+          sql, args,
+        };
+      },
+    };
+  },
+});
+const ordersFixture = [
+  {out_trade_no: 'LUMO_1_a', account_id: 1, money: 9.9},
+  {out_trade_no: 'LUMO_2_b', account_id: 2, money: 0.01, test: true},
+  {out_trade_no: 'LUMO_3_c', account_id: 999, money: 9.9}, // no matching account
+];
+const enriched = await enrichWithUsername({DB: d1Stub([{id: 1, username: 'alice'}, {id: 2, username: 'bob'}])}, ordersFixture);
+assert.equal(enriched[0].username, 'alice');
+assert.equal(enriched[1].username, 'bob');
+assert.equal(enriched[2].username, null); // D1 miss → null fallback
+// Order with username already set keeps it (no D1 override).
+const preSet = await enrichWithUsername({DB: d1Stub([])}, [{account_id: 1, username: 'preset'}]);
+assert.equal(preSet[0].username, 'preset');
+// D1 unavailable → orders returned unchanged, no throw.
+const noDb = await enrichWithUsername({}, ordersFixture);
+assert.equal(noDb.length, 3);
+assert.equal(noDb[0].username, undefined);
+
+// deleteOrder: admin can delete; non-admin forbidden; missing order 404.
+const delEnv = {KV: kvJsonStub({'order:TRADE1': {status: 'paid', account_id: 5, out_trade_no: 'TRADE1'}, 'order:pending:5': {trade_no: 'TRADE1'}})};
+const admin = {id: 9, role: 'admin'};
+const user = {id: 5, role: 'user'};
+let delResp = await deleteOrder(new Request('https://lumo.test/admin/orders/TRADE1', {method: 'DELETE'}), delEnv, user, 'TRADE1');
+assert.equal(delResp.status, 403);
+delResp = await deleteOrder(new Request('https://lumo.test/admin/orders/TRADE1', {method: 'DELETE'}), delEnv, admin, 'TRADE1');
+assert.equal(delResp.status, 200);
+assert.equal((await delEnv.KV.get('order:TRADE1', 'json')), null); // order gone
+assert.equal((await delEnv.KV.get('order:pending:5', 'json')), null); // pending cleared
+delResp = await deleteOrder(new Request('https://lumo.test/admin/orders/NOPE', {method: 'DELETE'}), delEnv, admin, 'NOPE');
+assert.equal(delResp.status, 404);
+delResp = await deleteOrder(new Request('https://lumo.test/admin/orders', {method: 'DELETE'}), delEnv, admin, null);
+assert.equal(delResp.status, 400);

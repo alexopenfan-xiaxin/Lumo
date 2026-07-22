@@ -106,8 +106,9 @@
     "/create-order": {
       "post": {
         "summary": "Create or reuse a pending monthly membership order",
-        "description": "Requires a bearer token. Returns the existing pending qrcode when one is active (idempotent). Rejects accounts that are already members.",
+        "description": "Requires a bearer token. Returns the existing pending qrcode when one is active (idempotent). Rejects accounts that are already members. Send `{test: true}` to create a ¥0.01 test order that exercises the full payment/callback/membership chain.",
         "security": [{"bearerAuth": []}],
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "properties": {"test": {"type": "boolean", "default": false, "description": "Create a ¥0.01 test order."}}}}}},
         "responses": {
           "200": {"description": "Order created or reused", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Order"}}}},
           "401": {"$ref": "#/components/responses/Error"},
@@ -162,6 +163,17 @@
           "403": {"$ref": "#/components/responses/Error"},
           "404": {"$ref": "#/components/responses/Error"}
         }
+      },
+      "delete": {
+        "summary": "Delete an order and its pending record",
+        "description": "Admin only. Removes the order from KV. Does not revoke an already-granted membership.",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {"description": "Deleted", "content": {"application/json": {"schema": {"type": "object", "required": ["ok"], "properties": {"ok": {"type": "boolean", "const": true}}}}}},
+          "400": {"$ref": "#/components/responses/Error"},
+          "403": {"$ref": "#/components/responses/Error"},
+          "404": {"$ref": "#/components/responses/Error"}
+        }
       }
     }
   },
@@ -205,6 +217,8 @@
           "money": {"type": "string"},
           "out_trade_no": {"type": "string"},
           "account_id": {"type": "string"},
+          "username": {"type": ["string", "null"], "description": "Joined from D1 accounts table; null if lookup misses."},
+          "test": {"type": "boolean", "description": "True for ¥0.01 test orders."},
           "created_at": {"type": "integer"},
           "paid_at": {"type": "integer"}
         }
