@@ -9,14 +9,16 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class MembershipPage extends StatefulWidget {
-  const MembershipPage({super.key});
+  const MembershipPage({super.key, this.authClient});
+
+  final AuthClient? authClient;
 
   @override
   State<MembershipPage> createState() => _MembershipPageState();
 }
 
 class _MembershipPageState extends State<MembershipPage> {
-  final _authClient = AuthClient();
+  late final _authClient = widget.authClient ?? AuthClient();
   MembershipStatus? _status;
   bool _loading = true;
   String? _error;
@@ -413,9 +415,10 @@ class _QrCodePanel extends StatefulWidget {
 }
 
 class _QrCodePanelState extends State<_QrCodePanel> {
-  static const _polls = 10;
-  static const _interval = Duration(seconds: 3);
-  int _remaining = _polls;
+  static const _timeoutSeconds = 60;
+  static const _pollEverySeconds = 3;
+  static const _interval = Duration(seconds: 1);
+  int _remaining = _timeoutSeconds;
   Timer? _timer;
   bool _checking = false;
   bool _timedOut = false;
@@ -434,8 +437,13 @@ class _QrCodePanelState extends State<_QrCodePanel> {
 
   Future<void> _tick() async {
     if (_remaining <= 0 || _timedOut) return;
-    if (_checking) return;
     setState(() => _remaining--);
+    if (_remaining <= 0) {
+      _timer?.cancel();
+      setState(() => _timedOut = true);
+      return;
+    }
+    if (_checking || _remaining % _pollEverySeconds != 0) return;
     setState(() => _checking = true);
     try {
       final status = await widget.authClient.checkMembership();
@@ -451,9 +459,6 @@ class _QrCodePanelState extends State<_QrCodePanel> {
       // network blips: keep polling
     } finally {
       if (mounted) setState(() => _checking = false);
-    }
-    if (_remaining <= 0 && mounted) {
-      setState(() => _timedOut = true);
     }
   }
 
@@ -538,7 +543,7 @@ class _QrCodePanelState extends State<_QrCodePanel> {
                     ),
                   ),
                 Text(
-                  '正在等待支付结果…（${_remaining * 3}s）',
+                  '正在等待支付结果…（${_remaining}s）',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
