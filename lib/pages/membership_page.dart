@@ -29,24 +29,27 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   Future<void> _loadMembership() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       final status = await _authClient.checkMembership();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _status = status;
           _loading = false;
         });
+      }
     } on AuthException catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.message;
           _loading = false;
         });
+      }
     }
   }
 
@@ -104,9 +107,9 @@ class _MembershipPageState extends State<MembershipPage> {
             _PriceHeader(),
             const SizedBox(height: 20),
             if (_loading)
-              const Center(
+              const Padding(
                 padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
+                child: Center(child: CircularProgressIndicator()),
               )
             else if (_error != null)
               _ErrorView(message: _error!, onRetry: _loadMembership)
