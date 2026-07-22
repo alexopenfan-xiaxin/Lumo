@@ -107,8 +107,8 @@ class AuthClient {
     if (current == null) throw const AuthException('请先登录。');
     final response = await _request('PATCH', '/auth/account', {
       'currentPassword': currentPassword,
-      'username': ?username,
-      'newPassword': ?newPassword,
+      if (username != null) 'username': username,
+      if (newPassword != null) 'newPassword': newPassword,
     }, token: current.token);
     late final AccountSession account;
     try {

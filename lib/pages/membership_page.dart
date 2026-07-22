@@ -413,12 +413,12 @@ class _QrCodePanel extends StatefulWidget {
 }
 
 class _QrCodePanelState extends State<_QrCodePanel> {
-  // ponytail: 30s total, 3s interval. 10 polls — covers the typical Alipay flow.
   static const _polls = 10;
   static const _interval = Duration(seconds: 3);
   int _remaining = _polls;
   Timer? _timer;
   bool _checking = false;
+  bool _timedOut = false;
 
   @override
   void initState() {
@@ -433,13 +433,17 @@ class _QrCodePanelState extends State<_QrCodePanel> {
   }
 
   Future<void> _tick() async {
-    if (_remaining <= 0 || _checking) return;
+    if (_remaining <= 0 || _timedOut) return;
+    if (_checking) return;
     setState(() => _remaining--);
-    if (_remaining < 0) return;
     setState(() => _checking = true);
     try {
       final status = await widget.authClient.checkMembership();
       if (status.isMember && mounted) {
+        _timer?.cancel();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('支付成功！')),
+        );
         Navigator.pop(context, true);
         return;
       }
@@ -449,10 +453,41 @@ class _QrCodePanelState extends State<_QrCodePanel> {
       if (mounted) setState(() => _checking = false);
     }
     if (_remaining <= 0 && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('未检测到支付，可重新发起。')));
-      Navigator.pop(context, false);
+      setState(() => _timedOut = true);
+    }
+  }
+
+  Future<void> _manualCheck() async {
+    _timer?.cancel();
+    setState(() => _checking = true);
+    try {
+      final status = await widget.authClient.checkMembership();
+      if (status.isMember && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('支付成功！')),
+        );
+        Navigator.pop(context, true);
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('暂未检测到支付记录，请确认已扫码完成支付。')),
+        );
+        if (!_timedOut) {
+          _timer = Timer.periodic(_interval, (_) => _tick());
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络异常，请稍后重试。')),
+        );
+        if (!_timedOut) {
+          _timer = Timer.periodic(_interval, (_) => _tick());
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _checking = false);
     }
   }
 
@@ -484,16 +519,36 @@ class _QrCodePanelState extends State<_QrCodePanel> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            _remaining > 0 ? '正在等待支付结果…（${_remaining * 3}s）' : '检测超时',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          if (_timedOut)
+            Text(
+              '未检测到支付，可重新检测。',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_checking)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                Text(
+                  '正在等待支付结果…（${_remaining * 3}s）',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('我已支付完成'),
+              onPressed: _checking ? null : _manualCheck,
+              child: Text(_timedOut ? '重新检测支付状态' : '我已支付完成'),
             ),
           ),
         ],
