@@ -501,9 +501,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
-          if (_account != null && !_account!.isMember) ...[
+          if (_account != null) ...[
             const SizedBox(height: 12),
-            _MembershipEntry(onTap: _openMembership),
+            _MembershipEntry(onTap: _openMembership, status: _membership),
           ],
           const SizedBox(height: 30),
           Row(
@@ -577,32 +577,47 @@ class _ProfileButton extends StatelessWidget {
 }
 
 class _MembershipEntry extends StatelessWidget {
-  const _MembershipEntry({required this.onTap});
+  const _MembershipEntry({required this.onTap, this.status});
 
   final VoidCallback onTap;
+  final MembershipStatus? status;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
-    borderRadius: BorderRadius.circular(16),
-    child: InkWell(
+  Widget build(BuildContext context) {
+    final isMember = status?.isMember == true;
+    final isPermanent = status?.plan == 'permanent';
+    final label = isPermanent
+        ? '永久会员 · 查看权益'
+        : isMember
+        ? '月度会员 · 查看权益'
+        : '开通月度会员 · ¥9.90/月';
+    return Material(
+      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: const SizedBox(
-        height: 56,
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium_outlined, size: 20),
-              SizedBox(width: 8),
-              Text('开通月度会员 · ¥9.90/月'),
-            ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: SizedBox(
+          height: 56,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isMember
+                      ? Icons.workspace_premium_rounded
+                      : Icons.workspace_premium_outlined,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(label),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ProfileShortcut extends StatelessWidget {

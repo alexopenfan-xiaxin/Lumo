@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../auth_client.dart';
 import '../data.dart';
@@ -70,11 +69,6 @@ class _MembershipPageState extends State<MembershipPage> {
     }
     if (!mounted) return;
 
-    // ponytail: best-effort launch — many emulators/no-Alipay devices will silently fail.
-    unawaited(
-      launchUrl(Uri.parse(qrcode), mode: LaunchMode.externalApplication),
-    );
-
     final paid = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -102,6 +96,10 @@ class _MembershipPageState extends State<MembershipPage> {
             40,
           ),
           children: [
+            if (_status != null && _status!.isMember) ...[
+              _MembershipStatusCard(status: _status!),
+              const SizedBox(height: 20),
+            ],
             _BenefitsCard(),
             const SizedBox(height: 28),
             _PriceHeader(),
@@ -117,6 +115,106 @@ class _MembershipPageState extends State<MembershipPage> {
               _PurchaseSection(status: _status, onPurchase: _startPurchase),
               const SizedBox(height: 32),
               _FooterNotes(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MembershipStatusCard extends StatelessWidget {
+  const _MembershipStatusCard({required this.status});
+  final MembershipStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPermanent = status.plan == 'permanent';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final remainingDays = status.expireAt != null
+        ? ((status.expireAt! - now) / 86_400_000).ceil()
+        : null;
+    // ponytail: 30-day window for progress ratio; permanent shows full bar.
+    final progress = isPermanent
+        ? 1.0
+        : (remainingDays != null
+              ? (remainingDays / MembershipProduct.durationDays).clamp(0.0, 1.0)
+              : 1.0);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: LumoColors.gold.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    isPermanent ? '永久会员' : '月度会员',
+                    style: TextStyle(
+                      color: LumoColors.gold,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (status.expireAt != null)
+                  Text(
+                    '有效期至 ${_formatDate(status.expireAt!)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (isPermanent)
+              Text(
+                '感谢长期支持，永久会员权益永久有效。',
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$remainingDays',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontSize: 28,
+                      fontFamily: 'LumoDisplay',
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '天剩余',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                  valueColor: AlwaysStoppedAnimation(
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -366,6 +464,12 @@ class _QrCodePanelState extends State<_QrCodePanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('使用支付宝扫码支付', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(
+            '长按或截图保存二维码，在支付宝扫一扫中识别',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
@@ -385,27 +489,12 @@ class _QrCodePanelState extends State<_QrCodePanel> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('我已支付完成'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => unawaited(
-                    launchUrl(
-                      Uri.parse(widget.qrcode),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  ),
-                  child: const Text('打开支付宝'),
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('我已支付完成'),
+            ),
           ),
         ],
       ),
