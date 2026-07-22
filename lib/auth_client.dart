@@ -105,11 +105,15 @@ class AuthClient {
   }) async {
     final current = await session();
     if (current == null) throw const AuthException('请先登录。');
-    final response = await _request('PATCH', '/auth/account', {
-      'currentPassword': currentPassword,
-      ?'username': username,
-      ?'newPassword': newPassword,
-    }, token: current.token);
+    final body = <String, String>{'currentPassword': currentPassword};
+    if (username != null) body['username'] = username;
+    if (newPassword != null) body['newPassword'] = newPassword;
+    final response = await _request(
+      'PATCH',
+      '/auth/account',
+      body,
+      token: current.token,
+    );
     late final AccountSession account;
     try {
       account = AccountSession.fromJson(response);
