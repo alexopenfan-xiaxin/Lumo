@@ -876,15 +876,19 @@ const createOrder = async (request, env, account) => {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: new URLSearchParams(params).toString(),
     });
-  } catch {
-    return json({error: '支付服务暂时不可用，请稍后再试。'}, 502);
+  } catch (e) {
+    return json({error: `支付服务连接失败：${e?.message ?? '网络错误'}`}, 502);
   }
-  if (!resp.ok) return json({error: '支付服务暂时不可用，请稍后再试。'}, 502);
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 300); } catch { /* empty */ }
+    return json({error: `支付服务返回 HTTP ${resp.status}：${detail || '无响应体'}`}, 502);
+  }
   let data;
   try { data = await resp.json(); }
-  catch { return json({error: '支付服务返回异常。'}, 502); }
+  catch { return json({error: '支付服务返回异常（非 JSON）。'}, 502); }
   if (!data || data.code !== 1 || typeof data.qrcode !== 'string') {
-    return json({error: typeof data?.msg === 'string' ? data.msg : '下单失败，请稍后再试。'}, 502);
+    return json({error: typeof data?.msg === 'string' ? data.msg : `下单失败（code=${data?.code}）`}, 502);
   }
 
   const now = Date.now();
