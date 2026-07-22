@@ -60,7 +60,7 @@
       <dialog id="test-dialog" style="border:none;border-radius:24px;padding:0;max-width:420px;width:90vw;color:inherit;background:#fff">
         <div style="padding:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <strong style="font-size:18px">¥0.01 全链路测试</strong>
+            <strong style="font-size:18px">¥0.01 全链路测试（自动建测试账号）</strong>
             <button class="btn secondary" id="test-dialog-close" type="button" style="padding:4px 12px;min-height:32px">关闭</button>
           </div>
           <ol style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px">
@@ -111,9 +111,29 @@
     async function loadOrders(){const list=$('orders-list');list.replaceChildren();list.append(Object.assign(document.createElement('div'),{className:'empty card',textContent:'正在读取订单…'}));const body=await api('/admin/orders?perPage=50');const orders=body.orders||[];$('orders-total').textContent=body.total??orders.length;$('orders-paid').textContent=orders.filter(o=>o.status==='paid').length;$('orders-pending').textContent=orders.filter(o=>o.status!=='paid').length;list.replaceChildren();if(!orders.length){list.append(Object.assign(document.createElement('div'),{className:'empty card',textContent:'还没有订单。'}));return}for(const order of orders){const row=document.createElement('article');row.className='agent-row card';const copy=document.createElement('div');copy.className='agent-copy';const no=document.createElement('strong');no.textContent=order.test?`${order.out_trade_no}（测试）`:order.out_trade_no;const meta=document.createElement('p');const name=order.username||(`账号 #${order.account_id}`);meta.textContent=`${name} · ¥${order.money}`;copy.append(no,meta);const actions=document.createElement('div');actions.className='row-actions';const status=document.createElement('span');status.className=`status ${order.status==='paid'?'on':''}`;status.textContent=order.status==='paid'?'已支付':'待支付';const time=document.createElement('span');time.className='muted';time.style.fontSize='12px';time.textContent=fmtDate(order.paid_at||order.created_at);const del=document.createElement('button');del.className='btn secondary';del.style.padding='6px 12px';del.style.minHeight='36px';del.textContent='删除';del.addEventListener('click',async()=>{if(!confirm(`删除订单 ${order.out_trade_no}？此操作不可撤销。`))return;try{await api(`/admin/orders/${order.key||order.out_trade_no}`,{method:'DELETE'});toast('订单已删除。');await loadOrders()}catch(e){showError(e)}});actions.append(status,time,del);row.append(copy,actions);list.append(row)}}
     const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
     function setStep(n,html){const el=$(`test-step-${n}`);if(!el)return;el.hidden=false;el.innerHTML=html}
-    // ponytail: full-chain test — exercises create→sign→gateway→callback→KV→membership.
+    async function apiAs(token,path,options={}){const form=options.body instanceof FormData;const response=await fetch(path,{...options,headers:{...(!form?{'Content-Type':'application/json'}:{}),...(token?{Authorization:`Bearer ${token}`}:{})}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||'请求失败，请稍后重试。');return body}
+    // ponytail: full-chain test — creates a throwaway account (admin is permanent member and can't checkout),
+    // then exercises register→create-order→sign→gateway→callback→KV→membership end-to-end.
     // QR via external service (goqr.me) to avoid bundling a JS encoder for a test-only path.
-    async function startTestOrder(){const dialog=$('test-dialog');if(!dialog.open)dialog.showModal();for(let i=1;i<=4;i++){$(`test-step-${i}`).hidden=true}setStep(1,'正在创建 ¥0.01 测试订单…');let result;try{result=await api('/create-order',{method:'POST',body:JSON.stringify({test:true})})}catch(e){setStep(1,`✗ 下单失败：${e.message}`);return}setStep(1,`✓ 订单已创建 <code>${result.trade_no}</code>`);setStep(2,`<img alt="支付二维码" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(result.qrcode)}" width="220" height="220"/><p>用支付宝扫码支付 ¥0.01。</p>`);setStep(3,'等待支付回调…（最长 90 秒）');for(let i=0;i<30;i++){await sleep(3000);try{const order=await api(`/admin/orders/${result.trade_no}`);if(order.status==='paid'){setStep(3,`✓ 回调已收到 ${fmtDate(order.paid_at)}`);setStep(4,'验证会员是否开通…');try{const m=await api('/membership');setStep(4,m.isMember?'✓ 全链路通过：会员已开通':'✗ 回调成功但会员未开通，请检查 /notify 写 KV 逻辑')}catch(e){setStep(4,`✗ 验证会员失败：${e.message}`)}return}}catch{}}setStep(3,'✗ 90 秒内未收到回调。请检查易支付商户后台回调地址是否为 https://lumo-ai-bod.pages.dev/notify')}
+    async function startTestOrder(){const dialog=$('test-dialog');if(!dialog.open)dialog.showModal();for(let i=1;i<=4;i++){$(`test-step-${i}`).hidden=true}
+      // Step 1: invite code + register throwaway test account
+      setStep(1,'正在创建临时测试账号…');
+      const hex=Math.random().toString(16).slice(2,10);const testUser=`test_${hex}`;const testPass=`Test${hex}!123456`;
+      let testToken;
+      try{const invite=await api('/admin/invites',{method:'POST',body:JSON.stringify({count:1})});const reg=await apiAs(null,'/auth/register',{method:'POST',body:JSON.stringify({username:testUser,password:testPass,inviteCode:invite.codes[0]})});testToken=reg.token;setStep(1,`✓ 测试账号 <code>${testUser}</code> 已创建`)}
+      catch(e){setStep(1,`✗ 创建测试账号失败：${e.message}`);return}
+      // Step 2: create ¥0.01 test order with the throwaway account
+      setStep(2,'正在创建 ¥0.01 测试订单…');
+      let result;
+      try{result=await apiAs(testToken,'/create-order',{method:'POST',body:JSON.stringify({test:true})})}
+      catch(e){setStep(2,`✗ 下单失败：${e.message}`);return}
+      setStep(2,`✓ 订单 <code>${result.trade_no}</code><img alt="支付二维码" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(result.qrcode)}" width="220" height="220" style="margin-top:12px"/><p>用支付宝扫码支付 ¥0.01。</p>`);
+      // Step 3: poll for callback (admin token reads order status)
+      setStep(3,'等待支付回调…（最长 90 秒）');
+      for(let i=0;i<30;i++){await sleep(3000);try{const order=await api(`/admin/orders/${result.trade_no}`);if(order.status==='paid'){setStep(3,`✓ 回调已收到 ${fmtDate(order.paid_at)}`);
+        // Step 4: verify membership with the throwaway account token
+        setStep(4,'验证测试账号会员是否开通…');try{const m=await apiAs(testToken,'/membership');setStep(4,m.isMember?'✓ 全链路通过：测试账号已开通月度会员':'✗ 回调成功但会员未开通，请检查 /notify 写 KV 逻辑')}catch(e){setStep(4,`✗ 验证会员失败：${e.message}`)}return}}catch{}}
+      setStep(3,'✗ 90 秒内未收到回调。请检查易支付商户后台回调地址是否为 https://lumo-ai-bod.pages.dev/notify')}
     $('refresh-orders').addEventListener('click',()=>loadOrders().then(()=>toast('订单已刷新。')).catch(showError));
     $('test-order').addEventListener('click',()=>startTestOrder().catch(showError));
     $('test-dialog-close').addEventListener('click',()=>$('test-dialog').close());
