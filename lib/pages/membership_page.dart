@@ -441,9 +441,9 @@ class _QrCodePanelState extends State<_QrCodePanel> {
       final status = await widget.authClient.checkMembership();
       if (status.isMember && mounted) {
         _timer?.cancel();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('支付成功！')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('支付成功！')));
         Navigator.pop(context, true);
         return;
       }
@@ -463,25 +463,25 @@ class _QrCodePanelState extends State<_QrCodePanel> {
     try {
       final status = await widget.authClient.checkMembership();
       if (status.isMember && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('支付成功！')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('支付成功！')));
         Navigator.pop(context, true);
         return;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂未检测到支付记录，请确认已扫码完成支付。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂未检测到支付记录，请确认已扫码完成支付。')));
         if (!_timedOut) {
           _timer = Timer.periodic(_interval, (_) => _tick());
         }
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('网络异常，请稍后重试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('网络异常，请稍后重试。')));
         if (!_timedOut) {
           _timer = Timer.periodic(_interval, (_) => _tick());
         }
