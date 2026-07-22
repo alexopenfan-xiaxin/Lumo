@@ -230,6 +230,103 @@ const readBody = async (request) => {
   }
 };
 
+// ponytail: Cloudflare Web Crypto lacks MD5, so YIPAY/epay signing uses this
+// compact pure-JS RFC 1321 implementation (based on blueimp-md5, MIT).
+// Ceiling: ~1µs/byte; fine for the tiny param strings we sign here.
+const md5 = (() => {
+  const safeAdd = (x, y) => {
+    const lsw = (x & 0xffff) + (y & 0xffff);
+    const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+    return (msw << 16) | (lsw & 0xffff);
+  };
+  const rotl = (n, c) => (n << c) | (n >>> (32 - c));
+  const cmn = (q, a, b, x, s, t) => safeAdd(rotl(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b);
+  const ff = (a, b, c, d, x, s, t) => cmn((b & c) | (~b & d), a, b, x, s, t);
+  const gg = (a, b, c, d, x, s, t) => cmn((b & d) | (c & ~d), a, b, x, s, t);
+  const hh = (a, b, c, d, x, s, t) => cmn(b ^ c ^ d, a, b, x, s, t);
+  const ii = (a, b, c, d, x, s, t) => cmn(c ^ (b | ~d), a, b, x, s, t);
+  const binlMD5 = (x, len) => {
+    x[len >> 5] |= 0x80 << (len % 32);
+    x[(((len + 64) >>> 9) << 4) + 14] = len;
+    let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+    for (let i = 0; i < x.length; i += 16) {
+      const oa = a, ob = b, oc = c, od = d;
+      a=ff(a,b,c,d,x[i],7,-680876936); d=ff(d,a,b,c,x[i+1],12,-389564586); c=ff(c,d,a,b,x[i+2],17,606105819); b=ff(b,c,d,a,x[i+3],22,-1044525330);
+      a=ff(a,b,c,d,x[i+4],7,-176418897); d=ff(d,a,b,c,x[i+5],12,1200080426); c=ff(c,d,a,b,x[i+6],17,-1473231341); b=ff(b,c,d,a,x[i+7],22,-45705983);
+      a=ff(a,b,c,d,x[i+8],7,1770035416); d=ff(d,a,b,c,x[i+9],12,-1958414417); c=ff(c,d,a,b,x[i+10],17,-42063); b=ff(b,c,d,a,x[i+11],22,-1990404162);
+      a=ff(a,b,c,d,x[i+12],7,1804603682); d=ff(d,a,b,c,x[i+13],12,-40341101); c=ff(c,d,a,b,x[i+14],17,-1502002290); b=ff(b,c,d,a,x[i+15],22,1236535329);
+      a=gg(a,b,c,d,x[i+1],5,-165796510); d=gg(d,a,b,c,x[i+6],9,-1069501632); c=gg(c,d,a,b,x[i+11],14,643717713); b=gg(b,c,d,a,x[i],20,-373897302);
+      a=gg(a,b,c,d,x[i+5],5,-701558691); d=gg(d,a,b,c,x[i+10],9,38016083); c=gg(c,d,a,b,x[i+15],14,-660478335); b=gg(b,c,d,a,x[i+4],20,-405537848);
+      a=gg(a,b,c,d,x[i+9],5,568446438); d=gg(d,a,b,c,x[i+14],9,-1019803690); c=gg(c,d,a,b,x[i+3],14,-187363961); b=gg(b,c,d,a,x[i+8],20,1163531501);
+      a=gg(a,b,c,d,x[i+13],5,-1444681467); d=gg(d,a,b,c,x[i+2],9,-51403784); c=gg(c,d,a,b,x[i+7],14,1735328473); b=gg(b,c,d,a,x[i+12],20,-1926607734);
+      a=hh(a,b,c,d,x[i+5],4,-378558); d=hh(d,a,b,c,x[i+8],11,-2022574463); c=hh(c,d,a,b,x[i+11],16,1839030562); b=hh(b,c,d,a,x[i+14],23,-35309556);
+      a=hh(a,b,c,d,x[i+1],4,-1530992060); d=hh(d,a,b,c,x[i+4],11,1272893353); c=hh(c,d,a,b,x[i+7],16,-155497632); b=hh(b,c,d,a,x[i+10],23,-1094730640);
+      a=hh(a,b,c,d,x[i+13],4,681279174); d=hh(d,a,b,c,x[i],11,-358537222); c=hh(c,d,a,b,x[i+3],16,-722521979); b=hh(b,c,d,a,x[i+6],23,76029189);
+      a=hh(a,b,c,d,x[i+9],4,-640364487); d=hh(d,a,b,c,x[i+12],11,-421815835); c=hh(c,d,a,b,x[i+15],16,530742520); b=hh(b,c,d,a,x[i+2],23,-995338651);
+      a=ii(a,b,c,d,x[i],6,-198630844); d=ii(d,a,b,c,x[i+7],10,1126891415); c=ii(c,d,a,b,x[i+14],15,-1416354905); b=ii(b,c,d,a,x[i+5],21,-57434055);
+      a=ii(a,b,c,d,x[i+12],6,1700485571); d=ii(d,a,b,c,x[i+3],10,-1894986606); c=ii(c,d,a,b,x[i+10],15,-1051523); b=ii(b,c,d,a,x[i+1],21,-2054922799);
+      a=ii(a,b,c,d,x[i+8],6,1873313359); d=ii(d,a,b,c,x[i+15],10,-30611744); c=ii(c,d,a,b,x[i+6],15,-1560198380); b=ii(b,c,d,a,x[i+13],21,1309151649);
+      a=ii(a,b,c,d,x[i+4],6,-145523070); d=ii(d,a,b,c,x[i+11],10,-1120210379); c=ii(c,d,a,b,x[i+2],15,718787259); b=ii(b,c,d,a,x[i+9],21,-343485551);
+      a = safeAdd(a, oa); b = safeAdd(b, ob); c = safeAdd(c, oc); d = safeAdd(d, od);
+    }
+    return [a, b, c, d];
+  };
+  const bytesToBinl = (bytes) => {
+    const out = [];
+    for (let i = 0; i < bytes.length * 8; i += 8) out[i >> 5] = (out[i >> 5] || 0) | ((bytes[i / 8] & 0xff) << (i % 32));
+    return out;
+  };
+  const hexChars = '0123456789abcdef';
+  const binl2hex = (input) => {
+    let out = '';
+    for (let i = 0; i < input.length * 32; i += 8) {
+      const x = (input[i >> 5] >>> (i % 32)) & 0xff;
+      out += hexChars[(x >>> 4) & 0x0f] + hexChars[x & 0x0f];
+    }
+    return out;
+  };
+  return (str) => {
+    const bytes = new TextEncoder().encode(String(str));
+    return binl2hex(binlMD5(bytesToBinl(bytes), bytes.length * 8));
+  };
+})();
+
+const membershipProduct = {name: '月度会员', price: '9.90', durationDays: 30, contextLimit: 256000, dailyMessages: 200};
+const membershipDurationMs = membershipProduct.durationDays * 24 * 60 * 60 * 1000;
+
+// epay/YIPAY sign: sort non-empty params (excl sign/sign_type) by ASCII key,
+// join as key=value&..., append the merchant key directly, then MD5.
+export const buildEpaySign = (params, key) => {
+  const str = Object.keys(params)
+    .filter((k) => k !== 'sign' && k !== 'sign_type' && params[k] !== '' && params[k] != null)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&');
+  return md5(str + key);
+};
+
+export const parseAccountId = (outTradeNo) => {
+  const m = typeof outTradeNo === 'string' ? outTradeNo.match(/^LUMO_(.+)_[0-9a-f]+$/) : null;
+  return m ? m[1] : null;
+};
+
+export const computeMemberExpiry = (existingExpireAt, now, durationMs) => {
+  const base = typeof existingExpireAt === 'number' && existingExpireAt > now ? existingExpireAt : now;
+  return base + durationMs;
+};
+
+const membershipInfo = async (env, account) => {
+  if (!account) return {isMember: false, plan: null, expireAt: null, contextLimit: 128000, dailyMessages: 10};
+  if (account.is_member === 1) return {isMember: true, plan: 'permanent', expireAt: null, contextLimit: 256000, dailyMessages: null};
+  try {
+    const member = await env.KV.get(`member:${account.id}`, 'json');
+    if (member && typeof member.expire_at === 'number' && member.expire_at > Date.now()) {
+      return {isMember: true, plan: 'monthly', expireAt: member.expire_at, contextLimit: membershipProduct.contextLimit, dailyMessages: membershipProduct.dailyMessages};
+    }
+  } catch { /* KV unavailable: treat as registered user */ }
+  return {isMember: false, plan: null, expireAt: null, contextLimit: 128000, dailyMessages: 50};
+};
+
 const login = async (request, env) => {
   const body = await readBody(request);
   if (!body || !validCredentials(body.username, body.password)) return json({error: '请输入 3–24 位账号和至少 8 位密码。'}, 400);
@@ -414,10 +511,24 @@ const serveAgentImage = async (env, id) => {
   });
 };
 
-export const quotaPolicy = (account) => account?.is_member === 1 ? null : {limit: account ? 100 : 10, period: account ? 'daily' : 'lifetime'};
+// ponytail: changed from a pure (account) => policy to async + KV lookup.
+// Ceiling: one KV read per chat request; acceptable for the small member:{id} JSON blob.
+export const quotaPolicy = async (env, account) => {
+  if (account?.is_member === 1) return null; // 永久会员
+  if (account) {
+    try {
+      const member = await env.KV.get(`member:${account.id}`, 'json');
+      if (member && typeof member.expire_at === 'number' && member.expire_at > Date.now()) {
+        return {limit: membershipProduct.dailyMessages, period: 'daily', contextLimit: membershipProduct.contextLimit};
+      }
+    } catch { /* KV unavailable: fall back to registered user */ }
+    return {limit: 50, period: 'daily'};
+  }
+  return {limit: 10, period: 'lifetime'};
+};
 
 const consumeQuota = async (env, account, guestId) => {
-  const policy = quotaPolicy(account);
+  const policy = await quotaPolicy(env, account);
   if (!policy) return null;
   if (!account && (typeof guestId !== 'string' || !/^[a-f0-9]{32}$/.test(guestId))) return json({error: '游客身份无效。'}, 400);
   const subject = account ? `account:${account.id}` : `guest:${guestId}`;
@@ -426,16 +537,17 @@ const consumeQuota = async (env, account, guestId) => {
     'INSERT INTO usage (subject, period, count) VALUES (?, ?, 1) ON CONFLICT(subject, period) DO UPDATE SET count = count + 1 WHERE count < ? RETURNING count',
   ).bind(subject, period, policy.limit).first();
   if (row) return null;
-  return json({error: account ? '今日 100 条消息已用完，明天再来吧。' : '游客的 10 条体验额度已用完，登录受邀账号后可继续发送。'}, 429);
+  return json({error: account ? `今日 ${policy.limit} 条消息已用完，明天再来吧。` : '游客的 10 条体验额度已用完，登录受邀账号后可继续发送。'}, 429);
 };
 
-const validMessages = (messages) =>
+export const validMessages = (messages) =>
   Array.isArray(messages) &&
   messages.length > 0 &&
   messages.length <= 512 &&
   messages.every(
-    ({role, content}) =>
-      (role === 'user' || role === 'assistant') && typeof content === 'string' && content.trim().length > 0 && content.length <= 4000,
+    (message) => message !== null && typeof message === 'object' &&
+      (message.role === 'user' || message.role === 'assistant') &&
+      typeof message.content === 'string' && message.content.trim().length > 0 && message.content.length <= 4000,
   );
 
 const validMemories = (memories) =>
@@ -723,6 +835,139 @@ const draftAgent = async (request, env, account) => {
   return json({draft});
 };
 
+// ponytail: epay/YIPAY integration. out_trade_no regex must match parseAccountId.
+// Upgrade path: if a second payment channel lands, extract a PaymentProvider.
+const createOrder = async (request, env, account) => {
+  if (!account) return json({error: '登录已过期。'}, 401);
+  const info = await membershipInfo(env, account);
+  if (info.isMember) return json({error: '您已是会员'}, 409);
+  try {
+    const pending = await env.KV.get(`order:pending:${account.id}`, 'json');
+    if (pending && typeof pending.trade_no === 'string' && typeof pending.qrcode === 'string') {
+      return json({qrcode: pending.qrcode, trade_no: pending.trade_no});
+    }
+  } catch { /* KV miss */ }
+  if (!env.YIPAY_PID || !env.YIPAY_KEY || !env.YIPAY_ENDPOINT) return json({error: '支付服务未配置。'}, 503);
+
+  const origin = new URL(request.url).origin;
+  const outTradeNo = `LUMO_${account.id}_${Date.now().toString(16)}${randomHex(2)}`;
+  const params = {
+    pid: env.YIPAY_PID,
+    type: 'alipay',
+    out_trade_no: outTradeNo,
+    notify_url: `${origin}/notify`,
+    return_url: `${origin}/`,
+    name: membershipProduct.name,
+    money: membershipProduct.price,
+    sitename: 'Lumo',
+    clientip: '0.0.0.0',
+  };
+  params.sign = buildEpaySign(params, env.YIPAY_KEY);
+  params.sign_type = 'MD5';
+
+  let resp;
+  try {
+    resp = await fetch(env.YIPAY_ENDPOINT, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams(params).toString(),
+    });
+  } catch {
+    return json({error: '支付服务暂时不可用，请稍后再试。'}, 502);
+  }
+  if (!resp.ok) return json({error: '支付服务暂时不可用，请稍后再试。'}, 502);
+  let data;
+  try { data = await resp.json(); }
+  catch { return json({error: '支付服务返回异常。'}, 502); }
+  if (!data || data.code !== 1 || typeof data.qrcode !== 'string') {
+    return json({error: typeof data?.msg === 'string' ? data.msg : '下单失败，请稍后再试。'}, 502);
+  }
+
+  const now = Date.now();
+  const order = {status: 'pending', pid: env.YIPAY_PID, type: 'alipay', money: membershipProduct.price, out_trade_no: outTradeNo, account_id: account.id, created_at: now};
+  try {
+    await env.KV.put(`order:${outTradeNo}`, JSON.stringify(order));
+    await env.KV.put(`order:pending:${account.id}`, JSON.stringify({trade_no: outTradeNo, qrcode: data.qrcode, created_at: now}), {expirationTtl: 300});
+  } catch { /* best-effort; order still usable, callback will reconcile */ }
+  return json({qrcode: data.qrcode, trade_no: outTradeNo});
+};
+
+const plainText = (body, status = 200) => new Response(body, {status, headers: {'Content-Type': 'text/plain; charset=utf-8'}});
+
+const notifyCallback = async (request, env) => {
+  let params;
+  try {
+    params = Object.fromEntries(new URLSearchParams(await request.text()));
+  } catch {
+    return plainText('fail', 400);
+  }
+  const sign = typeof params.sign === 'string' ? params.sign : '';
+  if (!sign || sign !== buildEpaySign(params, env.YIPAY_KEY)) return plainText('fail', 400);
+
+  const outTradeNo = typeof params.out_trade_no === 'string' ? params.out_trade_no : '';
+  const accountId = parseAccountId(outTradeNo);
+  if (!accountId) return plainText('fail', 400);
+  const tradeStatus = typeof params.trade_status === 'string' ? params.trade_status : '';
+  if (tradeStatus && tradeStatus !== 'TRADE_SUCCESS') return plainText('success');
+
+  try {
+    const existing = await env.KV.get(`order:${outTradeNo}`, 'json');
+    if (existing && existing.status === 'paid') return plainText('success');
+    const now = Date.now();
+    const order = existing ?? {pid: env.YIPAY_PID, type: 'alipay', money: membershipProduct.price, out_trade_no: outTradeNo, account_id: accountId, created_at: now};
+    order.status = 'paid';
+    order.paid_at = now;
+    await env.KV.put(`order:${outTradeNo}`, JSON.stringify(order));
+    const member = await env.KV.get(`member:${accountId}`, 'json');
+    const expireAt = computeMemberExpiry(member?.expire_at, now, membershipDurationMs);
+    await env.KV.put(`member:${accountId}`, JSON.stringify({plan: 'monthly', expire_at: expireAt, updated_at: now}));
+    await env.KV.delete(`order:pending:${accountId}`);
+  } catch { /* best-effort; epay will retry notify */ }
+  return plainText('success');
+};
+
+const getMembership = async (request, env, account) => {
+  if (!account) return json({error: '登录已过期。'}, 401);
+  return json(await membershipInfo(env, account));
+};
+
+const adminOrders = async (request, env, account, tradeNo) => {
+  if (account?.role !== 'admin') return json({error: '无权访问。'}, 403);
+  if (tradeNo) {
+    try {
+      const order = await env.KV.get(`order:${tradeNo}`, 'json');
+      if (!order) return json({error: '订单不存在'}, 404);
+      return json({key: tradeNo, ...order});
+    } catch {
+      return json({error: '订单不存在'}, 404);
+    }
+  }
+  const url = new URL(request.url);
+  const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+  const perPage = Math.min(50, Math.max(1, parseInt(url.searchParams.get('perPage') ?? '20', 10) || 20));
+  let list;
+  try {
+    list = await env.KV.list({prefix: 'order:'});
+  } catch {
+    return json({orders: [], total: 0, page, perPage, totalPages: 0});
+  }
+  // ponytail: skip order:pending:* keys (transient, TTL 300s).
+  const keys = list.keys
+    .map((k) => k.name)
+    .filter((name) => !name.startsWith('order:pending:'))
+    .sort()
+    .reverse();
+  const start = (page - 1) * perPage;
+  const pageKeys = keys.slice(start, start + perPage);
+  const orders = (await Promise.all(
+    pageKeys.map(async (key) => {
+      const val = await env.KV.get(key, 'json');
+      return val ? {key: key.replace('order:', ''), ...val} : null;
+    }),
+  )).filter(Boolean);
+  return json({orders, total: keys.length, page, perPage, totalPages: Math.ceil(keys.length / perPage) || 0});
+};
+
 const parseCandidates = (text) => {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return [];
@@ -741,12 +986,17 @@ export default {
     if (avatarMatch) return serveAvatar(request, avatarMatch[1]);
     const imageMatch = url.pathname.match(/^\/agent-images\/([a-z0-9_-]{2,32})$/);
     if (request.method === 'GET' && imageMatch) return serveAgentImage(env, imageMatch[1]);
-    if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat')) return json({error: '账号服务未配置。'}, 503);
+    if (!env.DB && (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/admin/') || url.pathname === '/agents' || url.pathname === '/chat' || url.pathname === '/create-order' || url.pathname === '/membership')) return json({error: '账号服务未配置。'}, 503);
     if (request.method === 'POST' && url.pathname === '/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/auth/register') return register(request, env);
     if (request.method === 'PATCH' && url.pathname === '/auth/account') return updateAccount(request, env, await authenticate(request, env));
     if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/admin/invites') return invites(request, env, await authenticate(request, env));
     if (request.method === 'POST' && url.pathname === '/admin/agents/draft') return draftAgent(request, env, await authenticate(request, env));
+    if (request.method === 'POST' && url.pathname === '/create-order') return createOrder(request, env, await authenticate(request, env));
+    if (request.method === 'POST' && url.pathname === '/notify') return notifyCallback(request, env);
+    if (request.method === 'GET' && url.pathname === '/membership') return getMembership(request, env, await authenticate(request, env));
+    const adminOrderMatch = request.method === 'GET' && url.pathname.match(/^\/admin\/orders(?:\/([^/]+))?$/);
+    if (adminOrderMatch) return adminOrders(request, env, await authenticate(request, env), adminOrderMatch[1]);
     if (request.method === 'GET' && url.pathname === '/agents') return json({agents: (await loadAgents(env)).filter((agent) => agent.enabled).map(publicAgent)});
     const agentMatch = url.pathname.match(/^\/admin\/agents(?:\/([a-z0-9_-]{2,32}))?$/);
     if (agentMatch && (request.method === 'GET' || request.method === 'PUT' || request.method === 'DELETE')) {

@@ -61,4 +61,26 @@ void main() {
 
     expect(window.removedMessageIds, ['message']);
   });
+
+  // ponytail: one check that the monthly 256k budget keeps messages the 128k default drops.
+  test('honors a custom maxTokens budget for monthly members', () {
+    final oldest = message('oldest', List.filled(70000, 'a').join());
+    final newest = message('newest', List.filled(70000, 'b').join());
+
+    final defaultWindow = limitContext(
+      messages: [oldest, newest],
+      summary: '',
+      memories: const [],
+    );
+    final monthlyWindow = limitContext(
+      messages: [oldest, newest],
+      summary: '',
+      memories: const [],
+      maxTokens: 256000,
+    );
+
+    expect(defaultWindow.removedMessageIds, ['oldest']);
+    expect(monthlyWindow.removedMessageIds, isEmpty);
+    expect(monthlyWindow.messages.map((item) => item.id), ['oldest', 'newest']);
+  });
 }

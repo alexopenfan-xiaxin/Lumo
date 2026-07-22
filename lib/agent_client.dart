@@ -24,13 +24,23 @@ class AgentClient {
       if (response.statusCode != HttpStatus.ok || decoded['agents'] is! List) {
         throw const AgentCatalogException('智能体列表暂时不可用。');
       }
-      return (decoded['agents'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(Companion.fromJson)
+      final rawAgents = decoded['agents'] as List;
+      if (rawAgents.any((agent) => agent is! Map)) {
+        throw const AgentCatalogException('智能体配置暂时无法读取。');
+      }
+      return rawAgents
+          .map(
+            (agent) =>
+                Companion.fromJson(Map<String, dynamic>.from(agent as Map)),
+          )
           .toList(growable: false);
     } on SocketException {
       throw const AgentCatalogException('网络好像开小差了，连接后重试吧。');
     } on FormatException {
+      throw const AgentCatalogException('智能体配置暂时无法读取。');
+    } on TypeError {
+      throw const AgentCatalogException('智能体配置暂时无法读取。');
+    } on RangeError {
       throw const AgentCatalogException('智能体配置暂时无法读取。');
     } finally {
       client.close(force: true);

@@ -154,6 +154,16 @@ class NoticeItem {
   final IconData icon;
 }
 
+class MembershipProduct {
+  const MembershipProduct._();
+
+  static const String name = '月度会员';
+  static const double price = 9.90;
+  static const int contextLimit = 256000;
+  static const int dailyMessages = 200;
+  static const int durationDays = 30;
+}
+
 const notices = <NoticeItem>[
   NoticeItem(
     tag: '更新',

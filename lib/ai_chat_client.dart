@@ -29,15 +29,14 @@ class AiChatClient {
         'memories': memories,
       });
       if (response.statusCode != HttpStatus.ok) {
-        final body =
-            jsonDecode(await utf8.decoder.bind(response).join())
-                as Map<String, dynamic>;
+        final body = _decodeObject(await utf8.decoder.bind(response).join());
         if (response.statusCode == HttpStatus.requestEntityTooLarge &&
             body['contextLimit'] == true) {
           throw const AiContextLimitException();
         }
         if (response.statusCode == HttpStatus.tooManyRequests) {
-          throw AiQuotaException(body['error'] as String? ?? '已达发送限额。');
+          final error = body['error'];
+          throw AiQuotaException(error is String ? error : '已达发送限额。');
         }
         if (response.statusCode == HttpStatus.unauthorized) {
           throw const AiChatException('登录已过期，请在设置中重新登录。');
@@ -45,16 +44,14 @@ class AiChatClient {
         throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
       }
       if (response.headers.contentType?.mimeType != 'text/event-stream') {
-        final body =
-            jsonDecode(await utf8.decoder.bind(response).join())
-                as Map<String, dynamic>;
+        final body = _decodeObject(await utf8.decoder.bind(response).join());
         final reply = body['reply'];
         if (reply is! String || reply.trim().isEmpty) {
           throw const AiChatException('AI 暂时没能接上，稍后再试试吧。');
         }
         final result = AiChatReply(
           text: reply.trim(),
-          process: body['process'] as String? ?? '',
+          process: body['process'] is String ? body['process'] as String : '',
           sources: _sources(body['sources']),
           images: _images(body['images']),
         );
@@ -78,16 +75,19 @@ class AiChatClient {
         if (line.startsWith('event:')) {
           event = line.substring(6).trim();
         } else if (line.startsWith('data:')) {
-          final data =
-              jsonDecode(line.substring(5).trim()) as Map<String, dynamic>;
+          final data = _decodeObject(line.substring(5).trim());
           if (event == 'process') {
-            process = data['text'] as String? ?? process;
+            process = data['text'] is String ? data['text'] as String : process;
           } else if (event == 'drawing') {
-            drawingText = data['text'] as String?;
+            drawingText = data['text'] is String
+                ? data['text'] as String
+                : null;
           } else if (event == 'delta') {
-            text += data['text'] as String? ?? '';
+            text += data['text'] is String ? data['text'] as String : '';
           } else if (event == 'done') {
-            process = data['process'] as String? ?? process;
+            process = data['process'] is String
+                ? data['process'] as String
+                : process;
             sources = _sources(data['sources']);
             images = _images(data['images']);
           } else if (event == 'error') {
@@ -95,7 +95,9 @@ class AiChatClient {
               throw const AiContextLimitException();
             }
             throw AiChatException(
-              data['message'] as String? ?? 'AI 暂时没能接上，稍后再试试吧。',
+              data['message'] is String
+                  ? data['message'] as String
+                  : 'AI 暂时没能接上，稍后再试试吧。',
             );
           }
           await onProgress?.call(
@@ -128,12 +130,14 @@ class AiChatClient {
   List<AiChatSource> _sources(Object? sources) => sources is List
       ? sources
             .whereType<Map>()
-            .map(
-              (source) => AiChatSource(
-                title: source['title'] as String? ?? '来源',
-                url: source['url'] as String? ?? '',
-              ),
-            )
+            .map((source) {
+              final title = source['title'];
+              final url = source['url'];
+              return AiChatSource(
+                title: title is String ? title : '来源',
+                url: url is String ? url : '',
+              );
+            })
             .where((source) => source.url.isNotEmpty)
             .toList()
       : const [];
@@ -141,7 +145,10 @@ class AiChatClient {
   List<AiChatImage> _images(Object? images) => images is List
       ? images
             .whereType<Map>()
-            .map((image) => AiChatImage(url: image['url'] as String? ?? ''))
+            .map((image) {
+              final url = image['url'];
+              return AiChatImage(url: url is String ? url : '');
+            })
             .where((image) => image.url.startsWith('https://'))
             .toList()
       : const [];
@@ -228,15 +235,14 @@ class AiChatClient {
         jsonEncode({'agentId': agentId, 'guestId': identity.guestId, ...body}),
       );
       final response = await request.close();
-      final decoded =
-          jsonDecode(await utf8.decoder.bind(response).join())
-              as Map<String, dynamic>;
+      final decoded = _decodeObject(await utf8.decoder.bind(response).join());
       if (response.statusCode == HttpStatus.requestEntityTooLarge &&
           decoded['contextLimit'] == true) {
         throw const AiContextLimitException();
       }
       if (response.statusCode == HttpStatus.tooManyRequests) {
-        throw AiQuotaException(decoded['error'] as String? ?? '已达发送限额。');
+        final error = decoded['error'];
+        throw AiQuotaException(error is String ? error : '已达发送限额。');
       }
       if (response.statusCode == HttpStatus.unauthorized) {
         throw const AiChatException('登录已过期，请在设置中重新登录。');
@@ -252,6 +258,14 @@ class AiChatClient {
     } finally {
       client.close(force: true);
     }
+  }
+
+  Map<String, dynamic> _decodeObject(String value) {
+    final decoded = jsonDecode(value);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid AI response');
+    }
+    return decoded;
   }
 }
 

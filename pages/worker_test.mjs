@@ -1,17 +1,85 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('_worker.js', import.meta.url), 'utf8');
 const contract = JSON.parse(await readFile(new URL('openapi.json', import.meta.url), 'utf8'));
-const {chatMessages, completionOptions, explicitlyRequestsImage, imageGenerationTool, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, updateAccount, validAgent, validImageSize, validImageUpload, validInviteCount, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const {buildEpaySign, chatMessages, completionOptions, computeMemberExpiry, explicitlyRequestsImage, imageGenerationTool, parseAccountId, parseAgentDraft, parseImagePlan, quotaPolicy, searchResults, updateAccount, validAgent, validImageSize, validImageUpload, validInviteCount, validMessages, webSearchTool, publicAgent} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
-assert.deepEqual(quotaPolicy(null), {limit: 10, period: 'lifetime'});
-assert.deepEqual(quotaPolicy({is_member: 0}), {limit: 100, period: 'daily'});
-assert.equal(quotaPolicy({is_member: 1}), null);
+// Reference MD5 oracle: node's crypto. Used to assert our pure-JS impl matches.
+const md5Hex = (str) => createHash('md5').update(str, 'utf8').digest('hex');
+
+// ponytail: in-memory KV stub for quotaPolicy/createOrder/notify tests.
+// Ceiling: only supports get/put/delete/list on a flat Map; no real TTL eviction.
+const kvJsonStub = (entries = {}) => {
+  const map = new Map();
+  for (const [k, v] of Object.entries(entries)) map.set(k, JSON.stringify(v));
+  return {
+    get: async (key, type) => {
+      if (!map.has(key)) return null;
+      const v = map.get(key);
+      return type === 'json' ? JSON.parse(v) : v;
+    },
+    put: async (key, val) => void map.set(key, val),
+    delete: async (key) => void map.delete(key),
+    list: async ({prefix} = {}) => ({keys: [...map.keys()].filter((k) => k.startsWith(prefix ?? '')).map((name) => ({name}))}),
+  };
+};
+const envNoKV = {};
+const envEmptyKV = {KV: kvJsonStub()};
+const now = Date.now();
+const dayMs = 86_400_000;
+
+// 游客
+assert.deepEqual(await quotaPolicy(envEmptyKV, null), {limit: 10, period: 'lifetime'});
+// 注册用户（无 KV 记录）
+assert.deepEqual(await quotaPolicy(envEmptyKV, {id: 'a1', is_member: 0}), {limit: 50, period: 'daily'});
+// 永久会员
+assert.equal(await quotaPolicy(envEmptyKV, {id: 'a1', is_member: 1}), null);
+// 月度会员（KV 有效）
+const envMonthly = {KV: kvJsonStub({'member:a1': {plan: 'monthly', expire_at: now + dayMs, updated_at: now}})};
+assert.deepEqual(await quotaPolicy(envMonthly, {id: 'a1', is_member: 0}), {limit: 200, period: 'daily', contextLimit: 256000});
+// 月度会员过期 → 回退为注册用户
+const envExpired = {KV: kvJsonStub({'member:a1': {plan: 'monthly', expire_at: now - 1000, updated_at: now}})};
+assert.deepEqual(await quotaPolicy(envExpired, {id: 'a1', is_member: 0}), {limit: 50, period: 'daily'});
+// KV 缺失/不可用 → 注册用户降级（不抛错）
+assert.deepEqual(await quotaPolicy(envNoKV, {id: 'a1', is_member: 0}), {limit: 50, period: 'daily'});
+
+// MD5 sign 测试：用 node crypto 作为对照 oracle
+assert.equal(buildEpaySign({}, 'key'), md5Hex('key')); // 空参 → md5(key)
+assert.equal(buildEpaySign({a: '1', b: '2'}, ''), md5Hex('a=1&b=2'));
+assert.equal(buildEpaySign({b: '2', a: '1', sign: 'xxx', sign_type: 'MD5'}, 'k'), md5Hex('a=1&b=2k'));
+assert.equal(buildEpaySign({a: '', b: null, c: '3'}, 'k'), md5Hex('c=3k')); // 空值参数被过滤
+// 已知 RFC 1321 向量：md5('') = d41d8cd98f00b204e9800998ecf8427e
+assert.equal(md5Hex(''), 'd41d8cd98f00b204e9800998ecf8427e');
+
+// parseAccountId
+assert.equal(parseAccountId('LUMO_abc123_deadbeef'), 'abc123');
+assert.equal(parseAccountId('LUMO_a-b_c_001_ff'), 'a-b_c_001');
+assert.equal(parseAccountId('not_lumo'), null);
+assert.equal(parseAccountId(null), null);
+assert.equal(parseAccountId(42), null);
+
+// computeMemberExpiry
+assert.equal(computeMemberExpiry(null, now, 30 * dayMs), now + 30 * dayMs);
+assert.equal(computeMemberExpiry(now - 1000, now, 30 * dayMs), now + 30 * dayMs); // 已过期 → 从 now 起
+assert.equal(computeMemberExpiry(now + dayMs, now, 30 * dayMs), now + dayMs + 30 * dayMs); // 有效期累加
+
 assert.equal(validInviteCount(1), true);
 assert.equal(validInviteCount(100), true);
 assert.equal(validInviteCount(0), false);
 assert.equal(validInviteCount(101), false);
+assert.equal(validMessages([{role: 'user', content: '你好'}]), true);
+assert.equal(validMessages([null]), false);
+assert.equal(validMessages([42]), false);
+
+// OpenAPI 同步：新增端点必须出现在契约里
+assert.ok(contract.paths['/create-order'].post, 'openapi: missing POST /create-order');
+assert.ok(contract.paths['/notify'].post, 'openapi: missing POST /notify');
+assert.ok(contract.paths['/membership'].get, 'openapi: missing GET /membership');
+assert.ok(contract.paths['/admin/orders'].get, 'openapi: missing GET /admin/orders');
+assert.ok(contract.paths['/admin/orders/{trade_no}'].get, 'openapi: missing GET /admin/orders/{trade_no}');
+assert.equal(contract.components.schemas.Membership.required.includes('isMember'), true);
 
 const agent = {
   id: 'new_agent', name: '新伙伴', glyph: '新', tagline: '一句介绍', color: '#A45F41',

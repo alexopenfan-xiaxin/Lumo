@@ -11,13 +11,14 @@ class ChatStore {
   final DatabaseFactory? _factory;
   final String? _databasePath;
   Database? _database;
+  Future<Database>? _openingDatabase;
 
   Future<Database> get _db async {
     if (_database != null) return _database!;
     final path =
         _databasePath ?? join(await getDatabasesPath(), 'lumo_chat.db');
     final factory = _factory ?? databaseFactory;
-    _database = await factory.openDatabase(
+    final opening = _openingDatabase ??= factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 7,
@@ -103,7 +104,12 @@ class ChatStore {
         },
       ),
     );
-    return _database!;
+    try {
+      _database = await opening;
+      return _database!;
+    } finally {
+      if (identical(_openingDatabase, opening)) _openingDatabase = null;
+    }
   }
 
   Future<List<Conversation>> conversations(String agentId) async {
@@ -197,6 +203,16 @@ class ChatStore {
     );
     final database = await _db;
     await database.transaction((transaction) async {
+      final conversations = await transaction.query(
+        'conversations',
+        columns: ['title'],
+        where: 'id = ?',
+        whereArgs: [conversationId],
+        limit: 1,
+      );
+      if (conversations.isEmpty) {
+        throw StateError('Conversation does not exist: $conversationId');
+      }
       await transaction.insert('messages', message.toRow());
       await transaction.update(
         'conversations',
@@ -204,21 +220,13 @@ class ChatStore {
         where: 'id = ?',
         whereArgs: [conversationId],
       );
-      if (role == MessageRole.user) {
-        final conversation = await transaction.query(
+      if (role == MessageRole.user && conversations.single['title'] == '新的对话') {
+        await transaction.update(
           'conversations',
-          columns: ['title'],
+          {'title': _title(content)},
           where: 'id = ?',
           whereArgs: [conversationId],
         );
-        if (conversation.single['title'] == '新的对话') {
-          await transaction.update(
-            'conversations',
-            {'title': _title(content)},
-            where: 'id = ?',
-            whereArgs: [conversationId],
-          );
-        }
       }
     });
     return message;
@@ -245,8 +253,9 @@ class ChatStore {
       await transaction.update(
         'messages',
         {'summarized_at': DateTime.now().millisecondsSinceEpoch},
-        where: 'id IN ($marks) AND summarized_at IS NULL',
-        whereArgs: messageIds,
+        where:
+            'conversation_id = ? AND id IN ($marks) AND summarized_at IS NULL',
+        whereArgs: [conversationId, ...messageIds],
       );
     });
   }
@@ -268,10 +277,20 @@ class ChatStore {
   }
 
   Future<void> clearConversations(String agentId) async {
-    final rows = await conversations(agentId);
-    for (final conversation in rows) {
-      await deleteConversation(conversation.id);
-    }
+    final database = await _db;
+    await database.transaction((transaction) async {
+      await transaction.delete(
+        'messages',
+        where:
+            'conversation_id IN (SELECT id FROM conversations WHERE agent_id = ?)',
+        whereArgs: [agentId],
+      );
+      await transaction.delete(
+        'conversations',
+        where: 'agent_id = ?',
+        whereArgs: [agentId],
+      );
+    });
   }
 
   Future<List<MemoryEntry>> memories(String agentId, {String? status}) async {
@@ -470,9 +489,18 @@ class StoredMessage {
 List<MessageSource> _sources(String encoded) {
   try {
     final decoded = jsonDecode(encoded);
-    return decoded is List
-        ? decoded.whereType<Map>().map(MessageSource.fromJson).toList()
-        : const [];
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((json) {
+          final title = json['title'];
+          final url = json['url'];
+          return title is String && url is String
+              ? MessageSource(title: title, url: url)
+              : null;
+        })
+        .whereType<MessageSource>()
+        .toList();
   } on FormatException {
     return const [];
   }

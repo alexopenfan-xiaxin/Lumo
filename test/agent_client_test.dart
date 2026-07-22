@@ -41,4 +41,28 @@ void main() {
     expect(agents.single.id, 'new_agent');
     expect(agents.single.avatarUrl, 'https://example.com/avatar.jpg');
   });
+
+  test('reports malformed public agent metadata as a catalog error', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) {
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(
+          jsonEncode({
+            'agents': [
+              {'id': 'broken', 'color': null},
+            ],
+          }),
+        );
+      request.response.close();
+    });
+
+    await expectLater(
+      AgentClient(
+        endpoint: 'http://127.0.0.1:${server.port}/chat',
+      ).fetchAgents(),
+      throwsA(isA<AgentCatalogException>()),
+    );
+  });
 }

@@ -9,5 +9,12 @@
       "database_name": "lumo-auth",
       "database_id": "3a83e9f2-d8de-4247-9c0a-0b3568df2fde"
     }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "d4a2e6bf59ee49d784e53685fc2a3aa6",
+      "preview_id": "4ccaa0c09f3a4d65bf0ef88aaf95ef7f"
+    }
   ]
 }

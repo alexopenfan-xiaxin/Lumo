@@ -35,6 +35,7 @@ ContextWindow limitContext({
   required List<StoredMessage> messages,
   required String summary,
   required List<MemoryEntry> memories,
+  int maxTokens = maxDynamicContextTokens,
 }) {
   var usedTokens = contextUsage(
     messages: const [],
@@ -46,7 +47,7 @@ ContextWindow limitContext({
   final removed = <String>[];
   for (final message in messages.reversed) {
     final messageTokens = estimatedTokens(message.content);
-    if (usedTokens + messageTokens > maxDynamicContextTokens) {
+    if (usedTokens + messageTokens > maxTokens) {
       removed.add(message.id);
     } else {
       kept.add(message);

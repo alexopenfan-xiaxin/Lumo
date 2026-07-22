@@ -13,6 +13,7 @@ class AuthClient {
 
   static const _sessionKey = 'auth_session';
   static const _guestKey = 'guest_id';
+  static final _guestIdPattern = RegExp(r'^[a-f0-9]{32}$');
 
   final ChatStore _store;
   final String _endpoint;
@@ -21,7 +22,11 @@ class AuthClient {
     final saved = await _store.setting(_sessionKey);
     if (saved == null) return null;
     try {
-      return AccountSession.fromJson(jsonDecode(saved) as Map<String, dynamic>);
+      final decoded = jsonDecode(saved);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Invalid account session');
+      }
+      return AccountSession.fromJson(decoded);
     } on FormatException {
       await _store.saveSetting(_sessionKey, null);
       return null;
@@ -29,7 +34,8 @@ class AuthClient {
   }
 
   Future<RequestIdentity> identity() async {
-    var guestId = await _store.setting(_guestKey);
+    final storedGuestId = await _store.setting(_guestKey);
+    var guestId = storedGuestId;
     try {
       guestId =
           await const MethodChannel(
@@ -41,12 +47,21 @@ class AuthClient {
     } on PlatformException {
       // A platform identity failure must not prevent the guest experience.
     }
-    guestId ??= List.generate(
-      16,
-      (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ).join();
-    await _store.saveSetting(_guestKey, guestId);
-    return RequestIdentity(guestId: guestId, token: (await session())?.token);
+    if (guestId == null || !_guestIdPattern.hasMatch(guestId)) {
+      final random = Random.secure();
+      guestId = List.generate(
+        16,
+        (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+    }
+    final validGuestId = guestId!;
+    if (validGuestId != storedGuestId) {
+      await _store.saveSetting(_guestKey, validGuestId);
+    }
+    return RequestIdentity(
+      guestId: validGuestId,
+      token: (await session())?.token,
+    );
   }
 
   Future<AccountSession> login(String username, String password) =>
@@ -67,6 +82,22 @@ class AuthClient {
 
   Future<void> logout() => _store.saveSetting(_sessionKey, null);
 
+  Future<MembershipStatus> checkMembership() async {
+    final current = await session();
+    if (current == null) throw const AuthException('请先登录。');
+    return MembershipStatus.fromJson(
+      await _request('GET', '/membership', null, token: current.token),
+    );
+  }
+
+  Future<CreateOrderResult> createOrder() async {
+    final current = await session();
+    if (current == null) throw const AuthException('请先登录。');
+    return CreateOrderResult.fromJson(
+      await _request('POST', '/create-order', null, token: current.token),
+    );
+  }
+
   Future<AccountSession> updateAccount({
     required String currentPassword,
     String? username,
@@ -79,7 +110,12 @@ class AuthClient {
       'username': ?username,
       'newPassword': ?newPassword,
     }, token: current.token);
-    final account = AccountSession.fromJson(response);
+    late final AccountSession account;
+    try {
+      account = AccountSession.fromJson(response);
+    } on FormatException {
+      throw const AuthException('账号服务暂时不可用。');
+    }
     await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
     return account;
   }
@@ -89,7 +125,12 @@ class AuthClient {
     Map<String, String> body,
   ) async {
     final response = await _request('POST', path, body);
-    final account = AccountSession.fromJson(response);
+    late final AccountSession account;
+    try {
+      account = AccountSession.fromJson(response);
+    } on FormatException {
+      throw const AuthException('账号服务暂时不可用。');
+    }
     await _store.saveSetting(_sessionKey, jsonEncode(account.toJson()));
     return account;
   }
@@ -97,7 +138,7 @@ class AuthClient {
   Future<Map<String, dynamic>> _request(
     String method,
     String path,
-    Map<String, String> body, {
+    Map<String, String>? body, {
     String? token,
   }) async {
     if (_endpoint.isEmpty) throw const AuthException('账号服务还没有部署完成。');
@@ -112,13 +153,17 @@ class AuthClient {
       if (token != null) {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       }
-      request.write(jsonEncode(body));
+      if (body != null) {
+        request.write(jsonEncode(body));
+      }
       final response = await request.close();
-      final decoded =
-          jsonDecode(await utf8.decoder.bind(response).join())
-              as Map<String, dynamic>;
+      final decoded = jsonDecode(await utf8.decoder.bind(response).join());
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Invalid account response');
+      }
       if (response.statusCode != HttpStatus.ok) {
-        throw AuthException(decoded['error'] as String? ?? '账号操作失败，请稍后再试。');
+        final error = decoded['error'];
+        throw AuthException(error is String ? error : '账号操作失败，请稍后再试。');
       }
       return decoded;
     } on SocketException {
@@ -144,12 +189,20 @@ class AccountSession {
   final bool isMember;
   final String role;
 
-  factory AccountSession.fromJson(Map<String, dynamic> json) => AccountSession(
-    username: json['username']! as String,
-    token: json['token']! as String,
-    isMember: json['isMember'] == true,
-    role: json['role']! as String,
-  );
+  factory AccountSession.fromJson(Map<String, dynamic> json) {
+    final username = json['username'];
+    final token = json['token'];
+    final role = json['role'];
+    if (username is! String || token is! String || role is! String) {
+      throw const FormatException('Invalid account session');
+    }
+    return AccountSession(
+      username: username,
+      token: token,
+      isMember: json['isMember'] == true,
+      role: role,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'username': username,
@@ -164,6 +217,48 @@ class RequestIdentity {
 
   final String guestId;
   final String? token;
+}
+
+class MembershipStatus {
+  const MembershipStatus({
+    required this.isMember,
+    required this.plan,
+    required this.expireAt,
+    required this.contextLimit,
+    required this.dailyMessages,
+  });
+
+  final bool isMember;
+  final String? plan; // 'monthly' | 'permanent' | null
+  final int? expireAt; // ms since epoch; null for permanent or non-member
+  final int contextLimit;
+  final int? dailyMessages; // null = unlimited
+
+  factory MembershipStatus.fromJson(Map<String, dynamic> json) {
+    final plan = json['plan'];
+    final expireAt = json['expireAt'];
+    final dailyMessages = json['dailyMessages'];
+    return MembershipStatus(
+      isMember: json['isMember'] == true,
+      plan: plan is String ? plan : null,
+      expireAt: expireAt is int ? expireAt : null,
+      contextLimit: (json['contextLimit'] as num?)?.toInt() ?? 128000,
+      dailyMessages: dailyMessages is int ? dailyMessages : null,
+    );
+  }
+}
+
+class CreateOrderResult {
+  const CreateOrderResult({required this.qrcode, required this.tradeNo});
+
+  final String qrcode;
+  final String tradeNo;
+
+  factory CreateOrderResult.fromJson(Map<String, dynamic> json) =>
+      CreateOrderResult(
+        qrcode: json['qrcode'] as String,
+        tradeNo: json['trade_no'] as String,
+      );
 }
 
 class AuthException implements Exception {

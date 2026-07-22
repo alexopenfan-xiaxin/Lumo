@@ -9,6 +9,7 @@ import '../auth_client.dart';
 import '../chat_store.dart';
 import '../update_checker.dart';
 import '../widgets.dart';
+import 'membership_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -28,6 +29,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _store = ChatStore();
   late final _authClient = AuthClient(store: _store);
   AccountSession? _account;
+  MembershipStatus? _membership;
 
   @override
   void initState() {
@@ -37,16 +39,41 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _load() async {
     final account = await _authClient.session();
+    MembershipStatus? membership;
+    if (account != null) {
+      try {
+        membership = await _authClient.checkMembership();
+      } on AuthException {
+        // network/endpoint unavailable — fall back to account-only copy
+      }
+    }
     if (mounted) {
-      setState(() => _account = account);
+      setState(() {
+        _account = account;
+        _membership = membership;
+      });
     }
   }
 
+  String get _membershipCopy {
+    if (_account == null) return '可体验 10 条消息';
+    if (_account!.isMember) return '永久会员';
+    if (_membership?.isMember == true && _membership!.plan == 'monthly') {
+      return '月度会员 · ${_membership!.dailyMessages ?? 200}条/日';
+    }
+    return '每日 50 条消息';
+  }
+
+  Future<void> _openMembership() => Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute<void>(builder: (_) => const MembershipPage()));
+
   Future<void> _showAccount() async {
     final account = _account;
+    final membership = _membership;
     final action = await Navigator.of(context).push<_AccountAction>(
       MaterialPageRoute<_AccountAction>(
-        builder: (_) => _AccountPage(account: account),
+        builder: (_) => _AccountPage(account: account, membership: membership),
       ),
     );
     if (action == null) return;
@@ -455,9 +482,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      _account == null
-                          ? '可体验 10 条消息'
-                          : (_account!.isMember ? '永久会员' : '每日 100 条消息'),
+                      _membershipCopy,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -476,6 +501,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
+          if (_account != null && !_account!.isMember) ...[
+            const SizedBox(height: 12),
+            _MembershipEntry(onTap: _openMembership),
+          ],
           const SizedBox(height: 30),
           Row(
             children: [
@@ -547,6 +576,35 @@ class _ProfileButton extends StatelessWidget {
   );
 }
 
+class _MembershipEntry extends StatelessWidget {
+  const _MembershipEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: const SizedBox(
+        height: 56,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium_outlined, size: 20),
+              SizedBox(width: 8),
+              Text('开通月度会员 · ¥9.90/月'),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _ProfileShortcut extends StatelessWidget {
   const _ProfileShortcut({
     required this.icon,
@@ -591,9 +649,19 @@ class _ProfileShortcut extends StatelessWidget {
 enum _AccountAction { login, register, rename, changePassword, logout }
 
 class _AccountPage extends StatelessWidget {
-  const _AccountPage({required this.account});
+  const _AccountPage({required this.account, this.membership});
 
   final AccountSession? account;
+  final MembershipStatus? membership;
+
+  String get _benefitValue {
+    if (account == null) return '';
+    if (account!.isMember) return '永久会员';
+    if (membership?.isMember == true && membership!.plan == 'monthly') {
+      return '月度会员 · ${membership!.dailyMessages ?? 200}条/日';
+    }
+    return '每日 50 条消息';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -635,10 +703,7 @@ class _AccountPage extends StatelessWidget {
                       onTap: () =>
                           Navigator.pop(context, _AccountAction.changePassword),
                     ),
-                    _SettingsRow(
-                      title: '权益',
-                      value: account!.isMember ? '永久会员' : '每日 100 条消息',
-                    ),
+                    _SettingsRow(title: '权益', value: _benefitValue),
                   ],
           ),
           if (account != null) ...[

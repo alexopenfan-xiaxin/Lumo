@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../ai_chat_client.dart';
+import '../auth_client.dart';
 import '../chat_store.dart';
 import '../context_window.dart';
 import '../data.dart';
@@ -48,6 +49,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isListening = false;
   bool _isVoiceMode = false;
   int _contextUsage = 0;
+  int _contextLimit = maxDynamicContextTokens;
 
   @override
   void initState() {
@@ -55,6 +57,22 @@ class _ChatPageState extends State<ChatPage> {
     if (widget.companion.isAvailable) {
       _store = ChatStore();
       unawaited(_loadConversation());
+      unawaited(_refreshContextLimit());
+    }
+  }
+
+  // ponytail: best-effort fetch — falls back to 128k if /membership is unavailable.
+  Future<void> _refreshContextLimit() async {
+    try {
+      final authClient = AuthClient(store: _store);
+      final session = await authClient.session();
+      if (session == null) return;
+      final membership = await authClient.checkMembership();
+      if (mounted && membership.contextLimit > 0) {
+        setState(() => _contextLimit = membership.contextLimit);
+      }
+    } on AuthException {
+      // ignore — keep default 128k
     }
   }
 
@@ -213,6 +231,12 @@ class _ChatPageState extends State<ChatPage> {
         conversationId: conversation.id,
         role: MessageRole.assistant,
         content: reply.text,
+        process: reply.process,
+        sources: reply.sources
+            .map(
+              (source) => MessageSource(title: source.title, url: source.url),
+            )
+            .toList(growable: false),
         imageUrl: image.url,
         imagePath: image.path,
       );
@@ -355,6 +379,7 @@ class _ChatPageState extends State<ChatPage> {
       messages: messages,
       summary: existingConversation.summary,
       memories: memories,
+      maxTokens: _contextLimit,
     );
     final contextMessages = forceTrim && window.messages.length > 1
         ? window.messages.skip(1).toList()
@@ -383,6 +408,7 @@ class _ChatPageState extends State<ChatPage> {
       messages: messages,
       summary: conversation.summary,
       memories: memories,
+      maxTokens: _contextLimit,
     );
     if (window.removedMessageIds.isEmpty) return;
     final ids = window.removedMessageIds.toSet();
@@ -785,10 +811,9 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
     final messageDuration = lumoMotionDuration(context, 220);
-    final contextPercent = (_contextUsage / maxDynamicContextTokens * 100)
-        .round();
+    final contextPercent = (_contextUsage / _contextLimit * 100).round();
     final contextLabel =
-        '已使用$contextPercent%\n${(_contextUsage / 1000).round()}k/128k';
+        '已使用$contextPercent%\n${(_contextUsage / 1000).round()}k/${(_contextLimit / 1000).round()}k';
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -827,7 +852,7 @@ class _ChatPageState extends State<ChatPage> {
                     child: SizedBox.square(
                       dimension: 22,
                       child: CircularProgressIndicator(
-                        value: (_contextUsage / maxDynamicContextTokens)
+                        value: (_contextUsage / _contextLimit)
                             .clamp(0.0, 1.0)
                             .toDouble(),
                         strokeWidth: 2.5,

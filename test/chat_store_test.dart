@@ -80,6 +80,61 @@ void main() {
     },
   );
 
+  test('keeps message writes scoped to their conversation', () async {
+    final store = ChatStore(
+      factory: databaseFactoryFfi,
+      databasePath: ':memory:',
+    );
+    final firstConversation = await store.createConversation('meow');
+    final secondConversation = await store.createConversation('meow');
+    final first = await store.addMessage(
+      conversationId: firstConversation.id,
+      role: MessageRole.user,
+      content: '第一段会话',
+    );
+    final second = await store.addMessage(
+      conversationId: secondConversation.id,
+      role: MessageRole.user,
+      content: '第二段会话',
+    );
+
+    await store.replaceSummaryAndMarkMessages(
+      conversationId: firstConversation.id,
+      summary: '第一段摘要',
+      messageIds: [first.id, second.id],
+    );
+
+    expect(
+      (await store.messages(firstConversation.id)).single.summarizedAt,
+      isNotNull,
+    );
+    expect(
+      (await store.messages(secondConversation.id)).single.summarizedAt,
+      isNull,
+    );
+    await expectLater(
+      store.addMessage(
+        conversationId: 'missing-conversation',
+        role: MessageRole.assistant,
+        content: '不应落库',
+      ),
+      throwsStateError,
+    );
+    expect(await store.messages('missing-conversation'), isEmpty);
+
+    final otherAgent = await store.createConversation('kun');
+    await store.addMessage(
+      conversationId: otherAgent.id,
+      role: MessageRole.assistant,
+      content: '保留的会话',
+    );
+    await store.clearConversations('meow');
+    expect(await store.conversations('meow'), isEmpty);
+    expect(await store.messages(firstConversation.id), isEmpty);
+    expect(await store.messages(secondConversation.id), isEmpty);
+    expect(await store.messages(otherAgent.id), hasLength(1));
+  });
+
   test('keeps memory candidates pending until approved', () async {
     final store = ChatStore(
       factory: databaseFactoryFfi,
