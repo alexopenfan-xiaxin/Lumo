@@ -25,7 +25,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _aiChatClient = AiChatClient();
@@ -51,13 +51,54 @@ class _ChatPageState extends State<ChatPage> {
   int _contextUsage = 0;
   int _contextLimit = maxDynamicContextTokens;
 
+  // ponytail: tracks in-flight replies per conversation so the loading state
+  // survives ChatPage disposal (e.g. user pops back to agents list mid-reply).
+  // The reply future keeps running and writes to DB; on reopen we restore the
+  // loading indicator and refresh from DB when it completes.
+  // Ceiling: process-local only — a cold restart loses the indicator, but the
+  // reply itself was either persisted or lost cleanly (HTTP interrupted).
+  static final Map<String, Future<void>> _pendingReplies = {};
+  // True when the app was backgrounded during an in-flight send. Used to
+  // suppress the misleading "本地会话保存失败" snackbar — the real cause is OS
+  // suspension of the isolate, not a save failure.
+  bool _wasBackgrounded = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.companion.isAvailable) {
       _store = ChatStore();
       unawaited(_loadConversation());
       unawaited(_refreshContextLimit());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _wasBackgrounded = true;
+    } else if (state == AppLifecycleState.resumed) {
+      // ponytail: re-sync from DB — a reply may have completed silently while
+      // backgrounded. Only refresh if we're not mid-reply and have a conversation.
+      if (_wasBackgrounded && _conversation != null && !_isReplying) {
+        unawaited(_resyncFromStore());
+      }
+      _wasBackgrounded = false;
+    }
+  }
+
+  Future<void> _resyncFromStore() async {
+    final conversation = _conversation;
+    if (conversation == null) return;
+    try {
+      final messages = await _store.messages(conversation.id);
+      if (!mounted) return;
+      setState(() {
+        _messages = messages.map(_ChatMessage.fromStored).toList();
+      });
+    } on Exception {
+      // best-effort sync — ignore
     }
   }
 
@@ -78,6 +119,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_speechInput.stop());
     unawaited(_speechInput.stopSpeaking());
     _inputController.dispose();
@@ -138,6 +180,29 @@ class _ChatPageState extends State<ChatPage> {
         );
       });
       _scrollToEnd();
+      // If a reply was in-flight when this ChatPage was previously disposed
+      // (user left mid-reply), restore the loading indicator and refresh from
+      // DB when the pending future completes.
+      final pendingReply = _pendingReplies[selected.id];
+      if (pendingReply != null && mounted) {
+        setState(() => _isReplying = true);
+        unawaited(
+          pendingReply.whenComplete(() async {
+            if (!mounted) return;
+            try {
+              final fresh = await _store.messages(selected.id);
+              if (!mounted) return;
+              setState(() {
+                _messages = fresh.map(_ChatMessage.fromStored).toList();
+                _isReplying = false;
+              });
+              _scrollToEnd();
+            } on Exception {
+              if (mounted) setState(() => _isReplying = false);
+            }
+          }),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoadingConversation = false);
     }
@@ -193,6 +258,10 @@ class _ChatPageState extends State<ChatPage> {
       _drawingMessageId = null;
     });
     _scrollToEnd();
+
+    // Track this reply so a reopened ChatPage can restore the loading state.
+    final replyCompleter = Completer<void>();
+    _pendingReplies[conversation.id] = replyCompleter.future;
 
     try {
       var context = await _prepareContext(conversation.id);
@@ -271,12 +340,21 @@ class _ChatPageState extends State<ChatPage> {
         ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } on Exception {
-      if (mounted) {
+      // ponytail: this catch-all historically fired when the OS suspended the
+      // isolate mid-send (app backgrounded), surfacing a misleading
+      // "保存到本地失败" snackbar on resume. If we were backgrounded, the real
+      // cause is OS suspension — suppress the snackbar and re-sync from DB
+      // (the reply may have partially completed). Otherwise, surface the error.
+      if (mounted && !_wasBackgrounded) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('本地会话保存失败，请稍后再试。')));
+      } else if (mounted && _wasBackgrounded) {
+        unawaited(_resyncFromStore());
       }
     } finally {
+      replyCompleter.complete();
+      _pendingReplies.remove(conversation.id);
       if (mounted) {
         setState(() => _isReplying = false);
         _scrollToEnd();
@@ -844,6 +922,7 @@ class _ChatPageState extends State<ChatPage> {
           if (widget.companion.isAvailable)
             Tooltip(
               message: contextLabel,
+              triggerMode: TooltipTriggerMode.tap,
               child: Semantics(
                 label: contextLabel,
                 child: SizedBox.square(
