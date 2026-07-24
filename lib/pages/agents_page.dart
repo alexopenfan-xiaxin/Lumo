@@ -76,6 +76,18 @@ class _AgentsPageState extends State<AgentsPage> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = lumoHorizontalPadding(context);
+    // ponytail: sort companions by most-recent-message (descending). Companions
+    // with no conversation stay last in catalog order. Stable sort preserves
+    // catalog order for ties (same updatedAt / both null).
+    final sortedCompanions = [...widget.companions]
+      ..sort((a, b) {
+        final aTime = _previews[a.id]?.updatedAt;
+        final bTime = _previews[b.id]?.updatedAt;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
     return SafeArea(
       child: ListView(
         key: const PageStorageKey('agents-scroll'),
@@ -95,10 +107,10 @@ class _AgentsPageState extends State<AgentsPage> {
             ),
           ],
           const SizedBox(height: 28),
-          if (widget.companions.isNotEmpty) ...[
+          if (sortedCompanions.isNotEmpty) ...[
             LumoSectionHeader(
               title: '我的陪伴',
-              caption: '${widget.companions.length} 位陪伴者',
+              caption: '${sortedCompanions.length} 位陪伴者',
             ),
             const SizedBox(height: 12),
             Card(
@@ -107,15 +119,15 @@ class _AgentsPageState extends State<AgentsPage> {
                 children: [
                   for (
                     var index = 0;
-                    index < widget.companions.length;
+                    index < sortedCompanions.length;
                     index++
                   ) ...[
                     _AgentRow(
-                      companion: widget.companions[index],
-                      preview: _previews[widget.companions[index].id],
-                      onTap: () => _openChat(widget.companions[index]),
+                      companion: sortedCompanions[index],
+                      preview: _previews[sortedCompanions[index].id],
+                      onTap: () => _openChat(sortedCompanions[index]),
                     ),
-                    if (index != widget.companions.length - 1)
+                    if (index != sortedCompanions.length - 1)
                       const Divider(height: 1, indent: 98, endIndent: 20),
                   ],
                 ],
